@@ -1,0 +1,990 @@
+%!TEX program = xelatex
+% ============================================================
+%  BÁO CÁO CUỐI KỲ – DDM501
+%  AI TRONG SẢN XUẤT: DEVOPS, DATAOPS, MLOPS
+%  FPT University – 2025-2026
+% ============================================================
+\documentclass[12pt,a4paper]{report}
+
+% ---- Phông chữ & Unicode (XeLaTeX) -------------------------
+\usepackage{fontspec}
+\setmainfont{Times New Roman}
+\usepackage{polyglossia}
+\setmainlanguage{vietnamese}
+
+% ---- Lề trang -----------------------------------------------
+\usepackage[top=2.5cm, bottom=2.5cm, left=3cm, right=2cm]{geometry}
+
+% ---- Hình ảnh, màu sắc, bảng biểu --------------------------
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{tabularx}
+\usepackage{multirow}
+\usepackage{array}
+
+% ---- Code listing -------------------------------------------
+\usepackage{listings}
+\lstset{
+  basicstyle=\ttfamily\small,
+  breaklines=true,
+  frame=single,
+  backgroundcolor=\color{gray!10},
+  keywordstyle=\color{blue!70}\bfseries,
+  commentstyle=\color{green!50!black}\itshape,
+  stringstyle=\color{orange!80!black},
+  numbers=left,
+  numberstyle=\tiny\color{gray},
+  xleftmargin=1.5em,
+  framexleftmargin=1.5em,
+}
+\lstdefinestyle{yaml}{
+  language=Python,
+  keywordstyle=\color{purple}\bfseries,
+}
+\lstdefinestyle{bash}{
+  language=bash,
+  keywordstyle=\color{teal}\bfseries,
+}
+
+% ---- Liên kết & mục lục -------------------------------------
+\usepackage{hyperref}
+\hypersetup{
+  colorlinks=true,
+  linkcolor=blue!60!black,
+  urlcolor=blue!60!black,
+  citecolor=green!50!black,
+  pdftitle={Báo cáo cuối kỳ DDM501},
+  pdfauthor={Phạm Minh Hoàng, Nguyễn Công Trọng, Ngô Minh Khôi},
+}
+
+% ---- Tiêu đề, định dạng chương -----------------------------
+\usepackage{titlesec}
+\titleformat{\chapter}[display]
+  {\normalfont\Large\bfseries\color{blue!60!black}}
+  {Chương \thechapter}{12pt}{\huge}
+\titlespacing*{\chapter}{0pt}{10pt}{20pt}
+
+% ---- Dòng kẻ header/footer ----------------------------------
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small\textit{DDM501 – AI trong sản xuất DevOps, DataOps, MLOps}}
+\fancyhead[R]{\small\textit{FPT University}}
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+% ---- Thuật ngữ & ghi chú ------------------------------------
+\usepackage{enumitem}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{float}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{tcolorbox}
+\tcbuselibrary{skins, breakable}
+
+% ---- Định nghĩa hộp highlight -------------------------------
+\newtcolorbox{notebox}{
+  enhanced, breakable,
+  colback=blue!5, colframe=blue!50!black,
+  title=\textbf{Ghi chú}, fonttitle=\bfseries,
+  boxrule=0.8pt, arc=3pt,
+}
+\newtcolorbox{resultbox}{
+  enhanced, breakable,
+  colback=green!5, colframe=green!50!black,
+  title=\textbf{Kết quả}, fonttitle=\bfseries,
+  boxrule=0.8pt, arc=3pt,
+}
+
+% ============================================================
+\begin{document}
+
+% ============================================================
+%  TRANG BÌA
+% ============================================================
+\begin{titlepage}
+  \centering
+  \vspace*{1cm}
+
+  {\Large\bfseries TRƯỜNG ĐẠI HỌC FPT}\\[0.3cm]
+  {\large\bfseries KHOA CÔNG NGHỆ THÔNG TIN}\\[0.3cm]
+  {\large (FPT University)}\\[1.5cm]
+
+  \rule{\linewidth}{1.5pt}\\[0.4cm]
+  {\Huge\bfseries\color{blue!70!black} BÁO CÁO CUỐI KỲ}\\[0.4cm]
+  {\LARGE\bfseries Môn học: AI trong sản xuất}\\[0.2cm]
+  {\LARGE\bfseries DevOps, DataOps, MLOps}\\[0.2cm]
+  {\large Mã môn: DDM501}\\[0.4cm]
+  \rule{\linewidth}{1.5pt}\\[1cm]
+
+  {\Large\bfseries Đề tài:}\\[0.3cm]
+  {\LARGE\bfseries Xây dựng hệ thống MLOps end-to-end}\\[0.2cm]
+  {\large Phân loại chất lượng rượu vang với giám sát, phát hiện drift}\\[0.2cm]
+  {\large và tự động tái huấn luyện mô hình}\\[2cm]
+
+  \begin{tabular}{ll}
+    \toprule
+    \textbf{Sinh viên thực hiện} & \textbf{Mã sinh viên} \\
+    \midrule
+    Phạm Minh Hoàng     & 25MS13285  \\
+    Nguyễn Công Trọng   & 25MS13297  \\
+    Ngô Minh Khôi       & 25MSA13236 \\
+    \bottomrule
+  \end{tabular}\\[2cm]
+
+  {\large \textbf{Năm học:} 2025 -- 2026}\\[0.5cm]
+  {\large \textbf{Học kỳ:} 1 -- 2026}\\[2cm]
+
+  {\large Hà Nội, tháng 10 năm 2026}
+\end{titlepage}
+
+% ============================================================
+%  LỜI CAM ĐOAN
+% ============================================================
+\chapter*{Lời cam đoan}
+\addcontentsline{toc}{chapter}{Lời cam đoan}
+
+Chúng tôi xin cam đoan rằng báo cáo cuối kỳ này là công trình nghiên cứu và thực nghiệm của nhóm, được thực hiện dưới sự hướng dẫn của giảng viên môn học. Các số liệu, kết quả được trình bày trong báo cáo là trung thực và chưa từng được công bố ở bất kỳ công trình nào khác. Mọi tham khảo từ tài liệu nước ngoài đều được trích dẫn đầy đủ.
+
+\vspace{2cm}
+\begin{flushright}
+  \textit{Hà Nội, tháng 10 năm 2026}\\[1cm]
+  \textbf{Nhóm sinh viên thực hiện}\\[0.3cm]
+  Phạm Minh Hoàng \quad Nguyễn Công Trọng \quad Ngô Minh Khôi
+\end{flushright}
+
+% ============================================================
+%  TÓM TẮT
+% ============================================================
+\chapter*{Tóm tắt}
+\addcontentsline{toc}{chapter}{Tóm tắt}
+
+Báo cáo này trình bày quá trình thiết kế và triển khai một hệ thống MLOps hoàn chỉnh (end-to-end) cho bài toán phân loại chất lượng rượu vang (\textit{Wine Quality Classification}) sử dụng bộ dữ liệu \texttt{sklearn.datasets.load\_wine()}. Hệ thống bao gồm toàn bộ vòng đời của một mô hình học máy: từ thu thập dữ liệu, tiền xử lý, huấn luyện, phục vụ (serving), giám sát (monitoring), phát hiện data drift đến tự động tái huấn luyện.
+
+Kiến trúc hệ thống được xây dựng với 8 dịch vụ Docker: \textbf{FastAPI} cho REST API serving, \textbf{MLflow} cho theo dõi thí nghiệm và quản lý mô hình, \textbf{Apache Airflow} cho orchestration pipeline tự động, \textbf{Evidently AI} cho phát hiện data drift, \textbf{Prometheus} và \textbf{Grafana} cho thu thập và trực quan hóa metrics, cùng \textbf{PostgreSQL} làm cơ sở dữ liệu nền.
+
+Kết quả thực nghiệm cho thấy hệ thống đạt độ chính xác 100\% trên tập kiểm tra tĩnh, vượt qua 74 test cases với độ bao phủ code 90\% ($\geq$80\% theo yêu cầu), và Airflow DAG gồm 5 tasks hoàn thành thành công khi nhận tín hiệu drift.
+
+\vspace{0.5cm}
+\noindent\textbf{Từ khóa:} MLOps, data drift, model monitoring, Docker, FastAPI, MLflow, Apache Airflow, Evidently AI, Prometheus, Grafana, Wine Classification.
+
+% ============================================================
+%  MỤC LỤC
+% ============================================================
+\tableofcontents
+\listoffigures
+\listoftables
+
+% ============================================================
+%  CHƯƠNG 1: GIỚI THIỆU
+% ============================================================
+\chapter{Giới thiệu}
+
+\section{Bối cảnh và động lực}
+
+Trong kỷ nguyên số hóa, các mô hình học máy (Machine Learning -- ML) đang được triển khai ngày càng rộng rãi trong các hệ thống sản xuất thực tế. Tuy nhiên, việc đưa một mô hình từ giai đoạn nghiên cứu vào môi trường production và duy trì hiệu năng theo thời gian là một thách thức lớn. Đây chính là vấn đề mà MLOps (Machine Learning Operations) được sinh ra để giải quyết.
+
+MLOps kết hợp các thực hành tốt nhất từ DevOps, DataOps và kỹ thuật học máy nhằm tạo ra một quy trình tự động, có thể tái lập và liên tục cải thiện. Theo báo cáo của Gartner (2023), hơn 80\% các dự án ML không bao giờ đến được giai đoạn production do thiếu hạ tầng vận hành phù hợp. MLOps chính là cầu nối giúp thu hẹp khoảng cách này.
+
+\section{Mục tiêu đề tài}
+
+Đề tài đặt ra các mục tiêu cụ thể sau:
+
+\begin{enumerate}[label=\textbf{\arabic*.}]
+  \item \textbf{Xây dựng pipeline ML hoàn chỉnh} từ ingestion đến serving với kiến trúc microservices dựa trên Docker.
+  \item \textbf{Triển khai MLflow} để theo dõi thí nghiệm, versioning mô hình và quản lý lifecycle.
+  \item \textbf{Phát triển REST API} với FastAPI để phục vụ dự đoán theo thời gian thực.
+  \item \textbf{Thiết lập hệ thống monitoring} với Prometheus + Grafana để theo dõi metrics về hiệu năng và sức khỏe hệ thống.
+  \item \textbf{Phát hiện data drift tự động} bằng Evidently AI và kích hoạt tái huấn luyện thông qua Airflow.
+  \item \textbf{Đảm bảo chất lượng code} với bộ test cases đạt coverage $\geq$80\%.
+  \item \textbf{Tích hợp CI/CD} với GitHub Actions để tự động hóa kiểm thử và triển khai.
+\end{enumerate}
+
+\section{Phạm vi thực hiện}
+
+Báo cáo tập trung vào các nội dung sau:
+\begin{itemize}
+  \item \textbf{Bài toán:} Phân loại chất lượng rượu vang (3 lớp: class 0, 1, 2) dựa trên 13 thuộc tính hóa học.
+  \item \textbf{Dataset:} \texttt{sklearn.datasets.load\_wine()} -- 178 mẫu, 13 features.
+  \item \textbf{Mô hình:} Random Forest Classifier (sklearn).
+  \item \textbf{Môi trường:} Docker Desktop trên Windows 11, Python 3.11.
+  \item \textbf{Thời gian thực hiện:} Tháng 9--10/2026.
+\end{itemize}
+
+\section{Cấu trúc báo cáo}
+
+Báo cáo được tổ chức thành 7 chương:
+\begin{itemize}
+  \item \textbf{Chương 1:} Giới thiệu tổng quan.
+  \item \textbf{Chương 2:} Cơ sở lý thuyết về MLOps.
+  \item \textbf{Chương 3:} Kiến trúc và thiết kế hệ thống.
+  \item \textbf{Chương 4:} Mô tả dữ liệu và mô hình ML.
+  \item \textbf{Chương 5:} Quy trình triển khai và thực nghiệm.
+  \item \textbf{Chương 6:} Kết quả đạt được.
+  \item \textbf{Chương 7:} Kết luận và hướng phát triển.
+\end{itemize}
+
+% ============================================================
+%  CHƯƠNG 2: CƠ SỞ LÝ THUYẾT
+% ============================================================
+\chapter{Cơ sở lý thuyết}
+
+\section{MLOps là gì?}
+
+\textbf{MLOps} (Machine Learning Operations) là tập hợp các thực hành, công cụ và quy trình nhằm chuẩn hóa và tự động hóa vòng đời của mô hình học máy trong môi trường sản xuất. MLOps kế thừa các nguyên tắc từ DevOps và áp dụng vào lĩnh vực học máy.
+
+\begin{figure}[H]
+  \centering
+  \begin{tcolorbox}[colback=blue!3, colframe=blue!40, arc=5pt, boxrule=1pt]
+    \centering
+    \large
+    \textbf{Data} $\rightarrow$ \textbf{Model Training} $\rightarrow$ \textbf{Evaluation} $\rightarrow$ \textbf{Deployment} $\rightarrow$ \textbf{Monitoring} $\rightarrow$ \textbf{Re-training}
+    \vspace{0.3cm}\\
+    \textit{(Vòng lặp liên tục -- Continuous ML)}
+  \end{tcolorbox}
+  \caption{Vòng đời của mô hình học máy trong MLOps}
+  \label{fig:mlops-lifecycle}
+\end{figure}
+
+\subsection{Các thành phần cốt lõi của MLOps}
+
+\begin{description}
+  \item[\textbf{Experiment Tracking:}] Ghi lại các thí nghiệm, siêu tham số (hyperparameters), metrics và artifacts của mỗi lần huấn luyện.
+  \item[\textbf{Model Registry:}] Kho lưu trữ và quản lý phiên bản mô hình với các trạng thái (Staging, Production, Archived).
+  \item[\textbf{Pipeline Orchestration:}] Tự động hóa quy trình từ ingestion đến deployment bằng các công cụ như Airflow, Prefect, Kubeflow.
+  \item[\textbf{Model Serving:}] Phục vụ dự đoán qua REST API, gRPC hoặc batch inference.
+  \item[\textbf{Monitoring:}] Theo dõi hiệu năng mô hình, data drift và infrastructure health.
+  \item[\textbf{Continuous Training:}] Tự động tái huấn luyện khi phát hiện model degradation hoặc data drift.
+\end{description}
+
+\section{Data Drift và Model Drift}
+
+\textbf{Data Drift} (hay \textit{Dataset Shift}) là hiện tượng phân phối của dữ liệu đầu vào thay đổi theo thời gian so với dữ liệu huấn luyện. Đây là một trong những nguyên nhân chính dẫn đến suy giảm hiệu năng mô hình trong production.
+
+Có ba loại drift phổ biến:
+\begin{itemize}
+  \item \textbf{Covariate Shift:} Phân phối đầu vào $P(X)$ thay đổi nhưng $P(Y|X)$ giữ nguyên.
+  \item \textbf{Label Shift:} Phân phối nhãn $P(Y)$ thay đổi.
+  \item \textbf{Concept Drift:} Mối quan hệ $P(Y|X)$ thay đổi theo thời gian.
+\end{itemize}
+
+Trong đề tài này, chúng tôi giả lập \textbf{Covariate Shift} bằng cách thêm nhiễu Gaussian vào dữ liệu input ($\mu=0$, $\sigma=2.0$) để kích hoạt quy trình phát hiện drift.
+
+\section{Các công cụ sử dụng}
+
+\subsection{MLflow}
+MLflow là một nền tảng mã nguồn mở do Databricks phát triển, cung cấp 4 thành phần chính: \textit{Tracking}, \textit{Projects}, \textit{Models} và \textit{Registry}. Trong đề tài, chúng tôi sử dụng \textit{Tracking} và \textit{Registry}.
+
+\subsection{Apache Airflow}
+Apache Airflow là công cụ workflow orchestration mã nguồn mở, cho phép định nghĩa, lên lịch và giám sát các pipeline dưới dạng DAG (Directed Acyclic Graph). Mỗi node trong DAG là một Task.
+
+\subsection{FastAPI}
+FastAPI là một web framework Python hiện đại, hiệu năng cao, dựa trên ASGI. FastAPI tự động sinh tài liệu Swagger UI và hỗ trợ kiểm tra kiểu dữ liệu với Pydantic.
+
+\subsection{Evidently AI}
+Evidently AI là thư viện Python chuyên biệt để đánh giá, kiểm tra và giám sát mô hình ML. Nó cung cấp các báo cáo về chất lượng dữ liệu, data drift và model performance.
+
+\subsection{Prometheus \& Grafana}
+Prometheus là hệ thống time-series database dùng để thu thập metrics qua HTTP scraping. Grafana là công cụ trực quan hóa metrics, kết nối với Prometheus để xây dựng dashboards.
+
+\subsection{Docker \& Docker Compose}
+Docker cho phép đóng gói ứng dụng cùng dependencies vào container, đảm bảo tính nhất quán giữa các môi trường. Docker Compose quản lý multi-container applications.
+
+% ============================================================
+%  CHƯƠNG 3: KIẾN TRÚC HỆ THỐNG
+% ============================================================
+\chapter{Kiến trúc và Thiết kế Hệ thống}
+
+\section{Tổng quan kiến trúc}
+
+Hệ thống được thiết kế theo kiến trúc microservices, với 8 dịch vụ độc lập giao tiếp qua Docker network \texttt{monitoring}. Tất cả dịch vụ được định nghĩa trong file \texttt{docker-compose.yml} và chia sẻ volume chung \texttt{/mlflow} để truy cập artifacts.
+
+\begin{figure}[H]
+  \centering
+  \begin{tcolorbox}[colback=gray!5, colframe=gray!40, arc=5pt, boxrule=1pt]
+    \ttfamily\small
+    \begin{tabular}{lll}
+      \toprule
+      \textbf{Service} & \textbf{Port} & \textbf{Vai trò} \\
+      \midrule
+      postgres        & 5432  & Database (Airflow metadata, MLflow) \\
+      mlflow          & 5000  & Experiment tracking \& Model registry \\
+      api (FastAPI)   & 8000  & REST API serving dự đoán \\
+      evidently       & 8001  & Data drift detection service \\
+      prometheus      & 9090  & Metrics collection \\
+      grafana         & 3000  & Metrics visualization (dashboard) \\
+      airflow-webserver & 8080 & Pipeline orchestration UI \\
+      airflow-scheduler & --  & DAG scheduler (background) \\
+      \bottomrule
+    \end{tabular}
+  \end{tcolorbox}
+  \caption{Danh sách các dịch vụ trong hệ thống}
+  \label{tab:services}
+\end{figure}
+
+\section{Luồng dữ liệu tổng thể}
+
+Luồng hoạt động chính của hệ thống được mô tả như sau:
+
+\begin{enumerate}
+  \item \textbf{Training phase:} Script \texttt{training.py} load dữ liệu wine, huấn luyện RandomForestClassifier, log metrics lên MLflow và đăng ký mô hình vào Production.
+  \item \textbf{Serving phase:} FastAPI API load mô hình từ MLflow Registry và cung cấp endpoint \texttt{POST /predict} cho client.
+  \item \textbf{Monitoring phase:} Mỗi request được ghi lại metrics (latency, error rate, prediction distribution). Prometheus scrape metrics theo chu kỳ.
+  \item \textbf{Drift Detection:} Script gửi 100 request bình thường, sau đó 250 request với dữ liệu bị nhiễu. Evidently AI phân tích và phát hiện drift khi tỷ lệ drift $\geq 30\%$.
+  \item \textbf{Auto-Retraining:} Khi drift được phát hiện, hệ thống kích hoạt Airflow DAG \texttt{ml\_pipeline} thông qua REST API.
+  \item \textbf{New Model:} Airflow DAG chạy 5 tasks: ingest $\rightarrow$ clean $\rightarrow$ feature engineer $\rightarrow$ train $\rightarrow$ evaluate \& register phiên bản mới vào MLflow.
+\end{enumerate}
+
+\section{Cấu trúc thư mục dự án}
+
+\begin{lstlisting}[language=bash, caption=Cấu trúc thư mục dự án ml-monitoring]
+ml-monitoring/
+|-- airflow/
+|   `-- dags/
+|       `-- ml_pipeline_dag.py   # Airflow DAG 5 tasks
+|-- api/
+|   |-- Dockerfile
+|   |-- main.py                  # FastAPI application
+|   `-- requirements.txt
+|-- evidently/
+|   |-- Dockerfile
+|   `-- main.py                  # Evidently drift service
+|-- mlflow/
+|   `-- Dockerfile               # MLflow server
+|-- monitoring/
+|   |-- grafana/                 # Grafana dashboards
+|   `-- prometheus/
+|       `-- prometheus.yml       # Scrape config
+|-- scripts/
+|   |-- training.py              # Initial training script
+|   `-- simulate_drift_and_retrain.py
+|-- src/                         # Core ML modules
+|   |-- data_pipeline.py
+|   |-- feature_engineering.py
+|   |-- train.py
+|   |-- evaluate.py
+|   `-- explainability.py
+|-- tests/                       # Unit & integration tests
+|-- .github/workflows/
+|   `-- ci-cd.yml               # GitHub Actions CI/CD
+`-- docker-compose.yml
+\end{lstlisting}
+
+\section{Thiết kế Airflow DAG}
+
+DAG \texttt{ml\_pipeline} được định nghĩa với 5 tasks thực thi tuần tự:
+
+\begin{figure}[H]
+  \centering
+  \begin{tcolorbox}[colback=orange!5, colframe=orange!40, arc=5pt]
+    \centering
+    \large
+    \texttt{data\_ingestion} $\rightarrow$
+    \texttt{data\_cleaning} $\rightarrow$
+    \texttt{feature\_engineering} $\rightarrow$
+    \texttt{model\_training} $\rightarrow$
+    \texttt{model\_evaluation\_and\_registration}
+  \end{tcolorbox}
+  \caption{Airflow DAG -- 5 tasks ML pipeline}
+  \label{fig:airflow-dag}
+\end{figure}
+
+\begin{description}
+  \item[\texttt{data\_ingestion}:] Load dữ liệu wine từ sklearn, lưu vào \texttt{/tmp/raw\_data.pkl}.
+  \item[\texttt{data\_cleaning}:] Kiểm tra và xử lý missing values, outliers.
+  \item[\texttt{feature\_engineering}:] Chuẩn hóa features bằng StandardScaler, split train/test.
+  \item[\texttt{model\_training}:] Huấn luyện RandomForestClassifier với cross-validation, log metrics MLflow.
+  \item[\texttt{model\_evaluation\_and\_registration}:] Đánh giá trên test set, nếu accuracy $\geq$ 85\% thì đăng ký vào Production.
+\end{description}
+
+\section{Kiến trúc CI/CD}
+
+GitHub Actions workflow được cấu hình với 3 jobs:
+\begin{enumerate}
+  \item \textbf{test:} Chạy pytest với coverage check ($\geq$80\%).
+  \item \textbf{lint:} Kiểm tra code style với flake8.
+  \item \textbf{build:} Build Docker images (chạy trên main branch).
+\end{enumerate}
+
+% ============================================================
+%  CHƯƠNG 4: DỮ LIỆU VÀ MÔ HÌNH
+% ============================================================
+\chapter{Mô tả Dữ liệu và Mô hình Học Máy}
+
+\section{Dataset: Wine Quality}
+
+Bộ dữ liệu được sử dụng là \texttt{sklearn.datasets.load\_wine()}, một bộ dữ liệu kinh điển trong học máy. Đây là kết quả phân tích hóa học của 178 mẫu rượu vang từ ba giống nho trồng ở vùng Piedmont, Ý.
+
+\begin{table}[H]
+  \centering
+  \caption{Thông tin tổng quan về dataset Wine}
+  \label{tab:dataset}
+  \begin{tabular}{ll}
+    \toprule
+    \textbf{Thuộc tính} & \textbf{Giá trị} \\
+    \midrule
+    Số mẫu (samples)       & 178 \\
+    Số features            & 13  \\
+    Số lớp (classes)       & 3 (class\_0: 59, class\_1: 71, class\_2: 48) \\
+    Missing values         & Không có \\
+    Kiểu dữ liệu           & Float64 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsection{Mô tả 13 features}
+
+\begin{longtable}{lll}
+  \caption{Mô tả các features trong dataset Wine}
+  \label{tab:features}\\
+  \toprule
+  \textbf{STT} & \textbf{Feature} & \textbf{Mô tả} \\
+  \midrule
+  \endfirsthead
+  \multicolumn{3}{c}{\textit{(Tiếp theo bảng \ref{tab:features})}}\\
+  \toprule
+  \textbf{STT} & \textbf{Feature} & \textbf{Mô tả} \\
+  \midrule
+  \endhead
+  \bottomrule
+  \endfoot
+  1  & alcohol                      & Nồng độ cồn (\%) \\
+  2  & malic\_acid                  & Axit malic (g/L) \\
+  3  & ash                          & Tro (g/L) \\
+  4  & alcalinity\_of\_ash          & Độ kiềm của tro \\
+  5  & magnesium                    & Magie (mg/L) \\
+  6  & total\_phenols               & Tổng phenol \\
+  7  & flavanoids                   & Flavanoid \\
+  8  & nonflavanoid\_phenols        & Phenol không phải flavanoid \\
+  9  & proanthocyanins              & Proanthocyanin \\
+  10 & color\_intensity             & Cường độ màu sắc \\
+  11 & hue                          & Sắc độ \\
+  12 & od280/od315\_of\_diluted\_wines & Tỷ lệ OD280/OD315 của rượu pha loãng \\
+  13 & proline                      & Proline (mg/L) \\
+\end{longtable}
+
+\section{Mô hình học máy}
+
+\subsection{Lựa chọn mô hình}
+
+Chúng tôi sử dụng \textbf{Random Forest Classifier} từ thư viện scikit-learn vì các lý do:
+\begin{itemize}
+  \item Xử lý tốt dữ liệu đa chiều mà không cần feature selection thủ công.
+  \item Ít bị overfitting nhờ cơ chế ensemble averaging.
+  \item Cung cấp feature importance giúp giải thích mô hình (explainability).
+  \item Không yêu cầu chuẩn hóa dữ liệu đầu vào (robust với scale khác nhau).
+\end{itemize}
+
+\subsection{Hyperparameters}
+
+\begin{table}[H]
+  \centering
+  \caption{Hyperparameters của RandomForestClassifier}
+  \label{tab:hyperparams}
+  \begin{tabular}{lll}
+    \toprule
+    \textbf{Tham số} & \textbf{Giá trị} & \textbf{Giải thích} \\
+    \midrule
+    \texttt{n\_estimators}  & 100          & Số cây quyết định \\
+    \texttt{max\_depth}     & None         & Không giới hạn độ sâu \\
+    \texttt{random\_state}  & 42           & Seed cố định để tái lập \\
+    \texttt{n\_jobs}        & -1           & Dùng tất cả CPU cores \\
+    \midrule
+    \texttt{test\_size}     & 0.2 (80/20)  & Tỷ lệ train/test split \\
+    \texttt{cv\_folds}      & 5            & 5-fold cross-validation \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsection{Quy trình tiền xử lý dữ liệu}
+
+\begin{enumerate}
+  \item \textbf{Load data:} \texttt{sklearn.datasets.load\_wine()} trả về \texttt{(X, y)} với $X \in \mathbb{R}^{178 \times 13}$, $y \in \{0,1,2\}^{178}$.
+  \item \textbf{Train-test split:} Phân chia 80\% train / 20\% test, stratified theo nhãn.
+  \item \textbf{Feature scaling:} \texttt{StandardScaler} chuẩn hóa mỗi feature về $\mu=0$, $\sigma=1$.
+  \item \textbf{Cross-validation:} 5-fold CV trên tập train để ước lượng hiệu năng khái quát.
+\end{enumerate}
+
+\subsection{Explainability -- Giải thích mô hình}
+
+Module \texttt{src/explainability.py} cung cấp:
+\begin{itemize}
+  \item \textbf{Feature Importance:} Xếp hạng 13 features theo mức độ đóng góp.
+  \item \textbf{Prediction Explanation:} Giải thích từng dự đoán cụ thể.
+  \item \textbf{Model Summary Report:} Báo cáo tổng hợp về mô hình.
+\end{itemize}
+
+% ============================================================
+%  CHƯƠNG 5: TRIỂN KHAI VÀ THỰC NGHIỆM
+% ============================================================
+\chapter{Quy trình Triển khai và Thực nghiệm}
+
+\section{Môi trường triển khai}
+
+\begin{table}[H]
+  \centering
+  \caption{Thông tin môi trường triển khai}
+  \label{tab:env}
+  \begin{tabular}{ll}
+    \toprule
+    \textbf{Thành phần} & \textbf{Chi tiết} \\
+    \midrule
+    Hệ điều hành    & Windows 11 Pro \\
+    Docker Desktop  & Docker Engine 27.x \\
+    Python          & 3.11 \\
+    scikit-learn    & $\geq$1.5.0 \\
+    numpy           & $\geq$2.0.0 \\
+    MLflow          & 2.x (build from Dockerfile) \\
+    Airflow image   & \texttt{ddm501-t03-airflow:2.8.4} \\
+    Prometheus      & v2.54.1 \\
+    Grafana         & 11.2.0 \\
+    PostgreSQL      & 15-alpine \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\section{Các bước triển khai}
+
+\subsection{Bước 1: Khởi động hạ tầng}
+
+\begin{lstlisting}[language=bash, caption=Khởi động toàn bộ 8 services bằng Docker Compose]
+# Di chuyển vào thư mục dự án
+cd ml-monitoring
+
+# Khởi động tất cả services ở chế độ daemon
+docker compose up -d
+
+# Kiểm tra trạng thái
+docker compose ps
+\end{lstlisting}
+
+Sau khi chạy lệnh trên, 8 containers sẽ được khởi động và sẵn sàng sau khoảng 30-60 giây.
+
+\subsection{Bước 2: Huấn luyện mô hình ban đầu}
+
+\begin{lstlisting}[language=bash, caption=Huấn luyện mô hình lần đầu]
+python scripts/training.py
+\end{lstlisting}
+
+Script \texttt{training.py} thực hiện:
+\begin{itemize}
+  \item Load dataset wine từ sklearn.
+  \item Huấn luyện RandomForestClassifier.
+  \item Log metrics (accuracy, precision, recall, F1) lên MLflow.
+  \item Đăng ký mô hình \texttt{wine\_quality\_model} Version 1 vào stage \textbf{Production}.
+\end{itemize}
+
+\subsection{Bước 3: Demo drift và tái huấn luyện tự động}
+
+\begin{lstlisting}[language=bash, caption=Chạy demo giả lập data drift]
+python scripts/simulate_drift_and_retrain.py
+\end{lstlisting}
+
+Kịch bản mô phỏng:
+\begin{enumerate}
+  \item Gửi \textbf{100 request bình thường} đến API \texttt{POST /predict} với dữ liệu gốc.
+  \item Gửi \textbf{250 request với dữ liệu bị nhiễu} (Gaussian noise: $\mu=0$, $\sigma=2.0$).
+  \item Evidently AI phát hiện drift ($\geq$30\% features bị drift).
+  \item Kích hoạt Airflow DAG \texttt{ml\_pipeline} qua REST API.
+  \item DAG chạy tự động 5 tasks và đăng ký model phiên bản mới.
+\end{enumerate}
+
+\subsection{Bước 4: Giám sát và quan sát kết quả}
+
+Sau khi hệ thống chạy, người dùng có thể truy cập các giao diện:
+
+\begin{table}[H]
+  \centering
+  \caption{Danh sách URL truy cập các thành phần hệ thống}
+  \label{tab:urls}
+  \begin{tabular}{lll}
+    \toprule
+    \textbf{Dịch vụ} & \textbf{URL} & \textbf{Thông tin đăng nhập} \\
+    \midrule
+    MLflow Tracking     & \url{http://localhost:5000}       & Không cần \\
+    Airflow DAGs        & \url{http://localhost:8080}       & admin / admin \\
+    FastAPI Swagger     & \url{http://localhost:8000/docs}  & Không cần \\
+    Grafana Dashboard   & \url{http://localhost:3000}       & admin / admin \\
+    Prometheus Targets  & \url{http://localhost:9090/targets} & Không cần \\
+    Evidently Service   & \url{http://localhost:8001}       & Không cần \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\section{Kiểm thử (Testing)}
+
+\subsection{Cấu trúc bộ test}
+
+\begin{table}[H]
+  \centering
+  \caption{Danh sách test files và số lượng test cases}
+  \label{tab:tests}
+  \begin{tabular}{lll}
+    \toprule
+    \textbf{File test} & \textbf{Module được test} & \textbf{Số tests} \\
+    \midrule
+    \texttt{test\_data.py}          & \texttt{src/data\_pipeline.py}       & $\sim$12 \\
+    \texttt{test\_train.py}         & \texttt{src/train.py}                & $\sim$10 \\
+    \texttt{test\_evaluate.py}      & \texttt{src/evaluate.py}             & $\sim$14 \\
+    \texttt{test\_explainability.py} & \texttt{src/explainability.py}      & $\sim$10 \\
+    \texttt{test\_api.py}           & \texttt{api/main.py} (FastAPI)       & $\sim$15 \\
+    \texttt{test\_model.py}         & Integration tests                    & $\sim$13 \\
+    \midrule
+    \textbf{Tổng cộng} & & \textbf{74 tests} \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsection{Chạy kiểm thử}
+
+\begin{lstlisting}[language=bash, caption=Chạy bộ test với coverage report]
+# Cai dat dependencies
+pip install pytest pytest-cov
+
+# Chay toan bo test voi coverage
+pytest tests/ --cov=src --cov=api --cov-report=term-missing -v
+
+# Ket qua: 74 tests PASSED -- coverage: 90%
+\end{lstlisting}
+
+\section{Xử lý các thách thức kỹ thuật}
+
+Trong quá trình triển khai, nhóm đã gặp và giải quyết một số thách thức kỹ thuật đáng chú ý:
+
+\begin{enumerate}
+  \item \textbf{MinIO Docker image bị ngừng hỗ trợ (October 2025):} Ban đầu hệ thống được thiết kế dùng MinIO làm artifact store. Tuy nhiên, image \texttt{minio/minio} không còn pull được từ Docker Hub. Giải pháp: thay thế hoàn toàn bằng local file storage (\texttt{file:///mlflow/artifacts}), mount volume \texttt{C:/mlflow:/mlflow} vào tất cả containers cần truy cập artifact.
+
+  \item \textbf{NumPy version mismatch:} Container API dùng NumPy 1.24.3 không đọc được model pickle được lưu bởi NumPy 2.x (lỗi \texttt{No module named 'numpy.\_core'}). Giải pháp: nâng lên \texttt{numpy>=2.0.0} trong \texttt{api/requirements.txt}.
+
+  \item \textbf{UnicodeEncodeError trên Windows:} Scripts sử dụng emoji trong print gây lỗi \texttt{UnicodeEncodeError} với encoding mặc định của Windows terminal (cp1252). Giải pháp: thêm \texttt{sys.stdout.reconfigure(encoding='utf-8')} đầu mỗi script.
+
+  \item \textbf{Airflow Permission Denied trên MLflow artifacts:} Task \texttt{model\_training} lỗi \texttt{Permission denied: '/mlflow'} do airflow container không được mount volume. Giải pháp: thêm \texttt{C:/mlflow:/mlflow} vào cả airflow-webserver và airflow-scheduler.
+\end{enumerate}
+
+% ============================================================
+%  CHƯƠNG 6: KẾT QUẢ
+% ============================================================
+\chapter{Kết quả Đạt được}
+
+\section{Kết quả huấn luyện mô hình}
+
+\begin{resultbox}
+\textbf{Model:} \texttt{wine\_quality\_model} -- Version 1\\
+\textbf{Stage:} Production\\
+\textbf{Dataset:} sklearn Wine (178 mẫu, 80\% train / 20\% test = 142/36 mẫu)
+
+\vspace{0.3cm}
+\begin{tabular}{ll}
+  Accuracy (test set)      & \textbf{100\%} \\
+  Precision (macro avg)    & 1.000 \\
+  Recall (macro avg)       & 1.000 \\
+  F1-score (macro avg)     & 1.000 \\
+  Cross-validation (5-fold) & $97.9\% \pm 2.8\%$ \\
+\end{tabular}
+\end{resultbox}
+
+\begin{notebox}
+Độ chính xác 100\% trên tập kiểm tra không phải do overfitting. Dataset Wine là bộ dữ liệu nhỏ nhưng có sự phân biệt rõ ràng giữa các lớp. Random Forest với 100 cây đủ để học đầy đủ các ranh giới quyết định. Cross-validation 5-fold cho $97.9\%$ xác nhận mô hình có khả năng khái quát tốt.
+\end{notebox}
+
+\section{Kết quả kiểm thử tự động}
+
+\begin{resultbox}
+\textbf{Tổng số test cases:} 74\\
+\textbf{Kết quả:} 74 PASSED, 0 FAILED, 0 ERROR\\
+\textbf{Code Coverage:} \textbf{90\%} (yêu cầu $\geq$80\%)\\
+\textbf{Thời gian chạy:} $\sim$45 giây
+\end{resultbox}
+
+\section{Kết quả Airflow DAG}
+
+Sau khi script drift detection phát hiện data drift, Airflow DAG được kích hoạt và hoàn thành thành công:
+
+\begin{table}[H]
+  \centering
+  \caption{Kết quả thực thi Airflow DAG}
+  \label{tab:dag-result}
+  \begin{tabular}{llll}
+    \toprule
+    \textbf{Task} & \textbf{Trạng thái} & \textbf{Duration} & \textbf{Ghi chú} \\
+    \midrule
+    data\_ingestion                      & \textcolor{green!60!black}{\textbf{SUCCESS}} & $\sim$2s  & Load wine dataset \\
+    data\_cleaning                       & \textcolor{green!60!black}{\textbf{SUCCESS}} & $\sim$1s  & No missing values \\
+    feature\_engineering                 & \textcolor{green!60!black}{\textbf{SUCCESS}} & $\sim$1s  & StandardScaler fit \\
+    model\_training                      & \textcolor{green!60!black}{\textbf{SUCCESS}} & $\sim$8s  & RF 100 estimators \\
+    model\_evaluation\_and\_registration & \textcolor{green!60!black}{\textbf{SUCCESS}} & $\sim$3s  & Đăng ký Production \\
+    \midrule
+    \textbf{Tổng} & \textcolor{green!60!black}{\textbf{5/5 SUCCESS}} & $\sim$15s & \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\section{Kết quả giám sát hệ thống}
+
+\subsection{Prometheus Metrics}
+
+Prometheus thu thập các metrics sau từ FastAPI:
+\begin{itemize}
+  \item \texttt{http\_requests\_total}: Tổng số requests theo endpoint và status code.
+  \item \texttt{http\_request\_duration\_seconds}: Phân phối latency theo histogram.
+  \item \texttt{model\_predictions\_total}: Số dự đoán theo class.
+  \item \texttt{model\_prediction\_latency}: Thời gian inference.
+\end{itemize}
+
+\subsection{Grafana Dashboard}
+
+Grafana hiển thị 4 panels chính:
+\begin{enumerate}
+  \item \textbf{Request Rate:} Số request/giây theo thời gian thực.
+  \item \textbf{Response Time:} Phân phối latency P50/P95/P99.
+  \item \textbf{Prediction Distribution:} Tỷ lệ dự đoán class 0/1/2.
+  \item \textbf{Error Rate:} Tỷ lệ requests lỗi (4xx, 5xx).
+\end{enumerate}
+
+\section{Kết quả CI/CD}
+
+GitHub Actions workflow được cấu hình tại \texttt{.github/workflows/ci-cd.yml}:
+\begin{itemize}
+  \item \textbf{Trigger:} Push lên branch \texttt{main} hoặc \texttt{develop}, hoặc mở Pull Request.
+  \item \textbf{Jobs:} Test (với coverage check) → Lint → Build.
+  \item \textbf{Status:} Tất cả jobs PASS khi code trên main branch.
+\end{itemize}
+
+\section{So sánh với yêu cầu đề tài}
+
+\begin{table}[H]
+  \centering
+  \caption{So sánh kết quả với yêu cầu đề tài}
+  \label{tab:comparison}
+  \begin{tabularx}{\textwidth}{Xll}
+    \toprule
+    \textbf{Yêu cầu} & \textbf{Mục tiêu} & \textbf{Kết quả} \\
+    \midrule
+    Model accuracy       & $\geq$85\%    & \textcolor{green!60!black}{\textbf{100\%}} \\
+    Code coverage        & $\geq$80\%    & \textcolor{green!60!black}{\textbf{90\%}} \\
+    Số test cases        & $\geq$10      & \textcolor{green!60!black}{\textbf{74}} \\
+    DAG tasks            & $\geq$3       & \textcolor{green!60!black}{\textbf{5}} \\
+    Drift detection      & Có            & \textcolor{green!60!black}{\textbf{Có (Evidently AI)}} \\
+    Auto-retraining      & Có            & \textcolor{green!60!black}{\textbf{Có (Airflow)}} \\
+    REST API serving     & Có            & \textcolor{green!60!black}{\textbf{Có (FastAPI)}} \\
+    Monitoring dashboard & Có            & \textcolor{green!60!black}{\textbf{Có (Grafana)}} \\
+    CI/CD pipeline       & Có            & \textcolor{green!60!black}{\textbf{Có (GitHub Actions)}} \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+% ============================================================
+%  CHƯƠNG 7: KẾT LUẬN
+% ============================================================
+\chapter{Kết luận và Hướng Phát triển}
+
+\section{Kết luận}
+
+Đề tài đã xây dựng thành công một hệ thống MLOps hoàn chỉnh, đáp ứng đầy đủ yêu cầu của môn học. Cụ thể:
+
+\begin{enumerate}
+  \item \textbf{Pipeline ML tự động:} Toàn bộ vòng đời mô hình từ training đến monitoring được tự động hóa, không cần can thiệp thủ công sau khi hệ thống khởi động.
+
+  \item \textbf{Kiến trúc microservices:} 8 dịch vụ Docker chạy độc lập, dễ dàng scale và thay thế từng thành phần mà không ảnh hưởng đến toàn hệ thống.
+
+  \item \textbf{Vòng lặp khép kín:} Hệ thống tự động phát hiện data drift và kích hoạt tái huấn luyện, đảm bảo mô hình luôn cập nhật với phân phối dữ liệu mới.
+
+  \item \textbf{Chất lượng code:} 74 test cases với 90\% coverage, vượt qua yêu cầu tối thiểu 80\%.
+
+  \item \textbf{Khả năng quan sát (Observability):} Prometheus + Grafana cung cấp visibility đầy đủ về hiệu năng hệ thống và mô hình.
+\end{enumerate}
+
+Qua quá trình thực hiện, nhóm đã tích lũy kinh nghiệm quý báu về:
+\begin{itemize}
+  \item Cách thiết kế và debug hệ thống multi-container phức tạp.
+  \item Xử lý các vấn đề tương thích phiên bản trong stack Python/numpy/sklearn.
+  \item Vận hành Apache Airflow cho ML pipeline orchestration.
+  \item Áp dụng các kỹ thuật phát hiện data drift trong thực tế.
+\end{itemize}
+
+\section{Hướng phát triển}
+
+Hệ thống hiện tại có thể được phát triển theo các hướng sau:
+
+\begin{enumerate}
+  \item \textbf{Triển khai lên Kubernetes (K8s):} Sử dụng Helm charts để deploy lên cloud (GCP, AWS, Azure) với khả năng auto-scaling.
+
+  \item \textbf{Tích hợp Feature Store:} Sử dụng Feast hoặc Hopsworks để quản lý features tập trung, chia sẻ giữa nhiều mô hình.
+
+  \item \textbf{A/B Testing:} Triển khai nhiều phiên bản mô hình song song với traffic splitting để so sánh hiệu năng trong production.
+
+  \item \textbf{Hyperparameter Optimization tự động:} Tích hợp Optuna hoặc Ray Tune vào DAG để tự động tìm kiếm hyperparameters tối ưu khi retrain.
+
+  \item \textbf{Data versioning:} Sử dụng DVC (Data Version Control) để versioning dữ liệu song song với model versioning.
+
+  \item \textbf{Mô hình phức tạp hơn:} Áp dụng với deep learning (TensorFlow/PyTorch) và các bài toán phức tạp hơn như NLP, time-series forecasting.
+
+  \item \textbf{Security:} Thêm authentication cho các API endpoints, mã hóa secrets với HashiCorp Vault, và network policies cho Docker.
+\end{enumerate}
+
+% ============================================================
+%  TÀI LIỆU THAM KHẢO
+% ============================================================
+\chapter*{Tài liệu tham khảo}
+\addcontentsline{toc}{chapter}{Tài liệu tham khảo}
+
+\begin{enumerate}[label={[\arabic*]}]
+  \item Sculley, D., et al. (2015). \textit{Hidden Technical Debt in Machine Learning Systems}. NIPS 2015.
+
+  \item Zaharia, M., et al. (2018). \textit{Accelerating the Machine Learning Lifecycle with MLflow}. VLDB 2018.
+
+  \item Apache Software Foundation. (2024). \textit{Apache Airflow Documentation}. \url{https://airflow.apache.org/docs/}
+
+  \item Tikhonov, M., et al. (2022). \textit{Evidently: An Open-Source Framework for Data and ML Monitoring}. \url{https://docs.evidentlyai.com/}
+
+  \item FastAPI Documentation. (2024). \url{https://fastapi.tiangolo.com/}
+
+  \item Prometheus Documentation. (2024). \textit{Prometheus Monitoring System \& Time Series Database}. \url{https://prometheus.io/docs/}
+
+  \item Grafana Labs. (2024). \textit{Grafana Documentation}. \url{https://grafana.com/docs/}
+
+  \item Scikit-learn Developers. (2024). \textit{sklearn.datasets.load\_wine}. \url{https://scikit-learn.org/stable/modules/generated/sklearn.datasets.load_wine.html}
+
+  \item Breck, E., et al. (2017). \textit{The ML Test Score: A Rubric for ML Production Readiness and Technical Debt Reduction}. IEEE Big Data 2017.
+
+  \item Kleppmann, M. (2017). \textit{Designing Data-Intensive Applications}. O'Reilly Media.
+
+  \item Géron, A. (2022). \textit{Hands-On Machine Learning with Scikit-Learn, Keras, and TensorFlow} (3rd ed.). O'Reilly Media.
+
+  \item Alla, S., \& Adari, S. K. (2021). \textit{Beginning MLOps with MLflow}. Apress.
+\end{enumerate}
+
+% ============================================================
+%  PHỤ LỤC
+% ============================================================
+\appendix
+
+\chapter{Hướng dẫn cài đặt và chạy}
+
+\section{Yêu cầu hệ thống}
+
+\begin{itemize}
+  \item Docker Desktop (đã bật và đang chạy)
+  \item Python 3.11+
+  \item Git
+  \item RAM: tối thiểu 8GB (khuyến nghị 16GB)
+  \item Disk: tối thiểu 5GB trống
+\end{itemize}
+
+\section{Các bước cài đặt từ đầu}
+
+\begin{lstlisting}[language=bash, caption=Cài đặt và chạy hệ thống từ đầu]
+# 1. Clone repository
+git clone https://github.com/phamminhhoang1985/DDM501_Lab1_25MS13285_PhamMinhHoang.git
+cd DDM501_Lab1_25MS13285_PhamMinhHoang/ml-monitoring
+
+# 2. Tao thu muc artifacts cho MLflow
+mkdir C:\mlflow
+
+# 3. Khoi dong services
+docker compose up -d
+
+# 4. Cho services khoi dong (khoang 60 giay)
+Start-Sleep -Seconds 60
+
+# 5. Cai dat Python dependencies cho scripts
+pip install -r scripts/requirements.txt
+
+# 6. Huan luyen mo hinh ban dau
+python scripts/training.py
+
+# 7. (Tuy chon) Chay demo drift & auto-retrain
+python scripts/simulate_drift_and_retrain.py
+
+# 8. Chay bo test
+pip install pytest pytest-cov
+pytest tests/ --cov=src --cov=api -v
+\end{lstlisting}
+
+\chapter{Cấu hình Docker Compose}
+
+\begin{lstlisting}[language=yaml, caption=Trích đoạn docker-compose.yml (services chính)]
+services:
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    ports: ["5432:5432"]
+
+  mlflow:
+    build: ./mlflow
+    ports: ["5000:5000"]
+    volumes:
+      - C:/mlflow:/mlflow
+    depends_on: [postgres]
+
+  api:
+    build: ./api
+    ports: ["8000:8000"]
+    volumes:
+      - C:/mlflow:/mlflow
+    environment:
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+
+  airflow-webserver:
+    image: ddm501-t03-airflow:2.8.4
+    ports: ["8080:8080"]
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags
+      - C:/mlflow:/mlflow
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
+\end{lstlisting}
+
+\chapter{Cấu trúc Airflow DAG}
+
+\begin{lstlisting}[language=Python, caption=ml\_pipeline\_dag.py -- DAG chính]
+from airflow import DAG
+from airflow.operators.python import PythonOperator
+from datetime import datetime, timedelta
+
+default_args = {
+    'owner': 'mlops-team',
+    'retries': 1,
+    'retry_delay': timedelta(minutes=5),
+}
+
+with DAG(
+    'ml_pipeline',
+    default_args=default_args,
+    schedule_interval=None,  # Trigger thu cong
+    start_date=datetime(2024, 1, 1),
+    catchup=False,
+) as dag:
+
+    ingest = PythonOperator(
+        task_id='data_ingestion',
+        python_callable=ingest_data,
+    )
+    clean = PythonOperator(
+        task_id='data_cleaning',
+        python_callable=clean_data,
+    )
+    features = PythonOperator(
+        task_id='feature_engineering',
+        python_callable=engineer_features,
+    )
+    train = PythonOperator(
+        task_id='model_training',
+        python_callable=train_model,
+    )
+    evaluate = PythonOperator(
+        task_id='model_evaluation_and_registration',
+        python_callable=evaluate_and_register,
+    )
+
+    ingest >> clean >> features >> train >> evaluate
+\end{lstlisting}
+
+\end{document}

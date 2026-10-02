@@ -1,0 +1,19 @@
+\selectlanguage *{vietnamese}
+\addvspace {10\p@ }
+\addvspace {10\p@ }
+\addvspace {10\p@ }
+\addvspace {10\p@ }
+\contentsline {table}{\numberline {4.1}{\ignorespaces Thông tin tổng quan về dataset Wine\relax }}{13}{table.caption.9}%
+\contentsline {table}{\numberline {4.2}{\ignorespaces Mô tả các features trong dataset Wine\relax }}{13}{table.4.2}%
+\contentsline {table}{\numberline {4.3}{\ignorespaces Hyperparameters của RandomForestClassifier\relax }}{14}{table.caption.10}%
+\addvspace {10\p@ }
+\contentsline {table}{\numberline {5.1}{\ignorespaces Thông tin môi trường triển khai\relax }}{15}{table.caption.11}%
+\contentsline {table}{\numberline {5.2}{\ignorespaces Danh sách URL truy cập các thành phần hệ thống\relax }}{16}{table.caption.12}%
+\contentsline {table}{\numberline {5.3}{\ignorespaces Danh sách test files và số lượng test cases\relax }}{17}{table.caption.13}%
+\addvspace {10\p@ }
+\contentsline {table}{\numberline {6.1}{\ignorespaces Kết quả thực thi Airflow DAG\relax }}{19}{table.caption.14}%
+\contentsline {table}{\numberline {6.2}{\ignorespaces So sánh kết quả với yêu cầu đề tài\relax }}{20}{table.caption.15}%
+\addvspace {10\p@ }
+\addvspace {10\p@ }
+\addvspace {10\p@ }
+\addvspace {10\p@ }

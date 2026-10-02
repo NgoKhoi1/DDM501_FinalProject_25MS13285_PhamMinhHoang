@@ -1,0 +1,78 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint:
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+      - name: Install dependencies
+        run: |
+          pip install flake8 ruff black
+      - name: Lint with flake8
+        run: |
+          flake8 ml-monitoring/src/ ml-monitoring/tests/ --max-line-length=120 --ignore=E501,W503
+      - name: Check formatting with ruff
+        run: |
+          ruff check ml-monitoring/src/ ml-monitoring/tests/ --fix
+        continue-on-error: true
+
+  test:
+    runs-on: self-hosted
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+      - name: Install dependencies
+        run: |
+          cd ml-monitoring
+          pip install -r requirements.txt
+          pip install pytest pytest-cov pytest-asyncio httpx
+      - name: Run tests with coverage
+        run: |
+          cd ml-monitoring
+          pytest tests/ -v --cov=src --cov=serving --cov-report=term-missing --cov-report=html --cov-fail-under=80
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: ml-monitoring/htmlcov/
+
+  build:
+    runs-on: self-hosted
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build Docker images
+        run: |
+          cd ml-monitoring
+          docker compose build api
+          docker compose build evidently
+      
+  deploy:
+    runs-on: self-hosted
+    needs: build
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy services
+        run: |
+          cd ml-monitoring
+          docker compose down
+          docker compose up -d
+      - name: Health check
+        run: |
+          sleep 30
+          curl -f http://localhost:8000/health || exit 1

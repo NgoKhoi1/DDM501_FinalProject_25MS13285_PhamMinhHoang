@@ -1,0 +1,62 @@
+\selectlanguage *{vietnamese}
+\contentsline {chapter}{Lời cam đoan}{1}{chapter*.1}%
+\contentsline {chapter}{Tóm tắt}{2}{chapter*.2}%
+\contentsline {chapter}{\numberline {1}Giới thiệu}{6}{chapter.1}%
+\contentsline {section}{\numberline {1.1}Bối cảnh và động lực}{6}{section.1.1}%
+\contentsline {section}{\numberline {1.2}Mục tiêu đề tài}{6}{section.1.2}%
+\contentsline {section}{\numberline {1.3}Phạm vi thực hiện}{6}{section.1.3}%
+\contentsline {section}{\numberline {1.4}Cấu trúc báo cáo}{7}{section.1.4}%
+\contentsline {chapter}{\numberline {2}Cơ sở lý thuyết}{8}{chapter.2}%
+\contentsline {section}{\numberline {2.1}MLOps là gì?}{8}{section.2.1}%
+\contentsline {subsection}{\numberline {2.1.1}Các thành phần cốt lõi của MLOps}{8}{subsection.2.1.1}%
+\contentsline {section}{\numberline {2.2}Data Drift và Model Drift}{8}{section.2.2}%
+\contentsline {section}{\numberline {2.3}Các công cụ sử dụng}{9}{section.2.3}%
+\contentsline {subsection}{\numberline {2.3.1}MLflow}{9}{subsection.2.3.1}%
+\contentsline {subsection}{\numberline {2.3.2}Apache Airflow}{9}{subsection.2.3.2}%
+\contentsline {subsection}{\numberline {2.3.3}FastAPI}{9}{subsection.2.3.3}%
+\contentsline {subsection}{\numberline {2.3.4}Evidently AI}{9}{subsection.2.3.4}%
+\contentsline {subsection}{\numberline {2.3.5}Prometheus \& Grafana}{9}{subsection.2.3.5}%
+\contentsline {subsection}{\numberline {2.3.6}Docker \& Docker Compose}{9}{subsection.2.3.6}%
+\contentsline {chapter}{\numberline {3}Kiến trúc và Thiết kế Hệ thống}{10}{chapter.3}%
+\contentsline {section}{\numberline {3.1}Tổng quan kiến trúc}{10}{section.3.1}%
+\contentsline {section}{\numberline {3.2}Luồng dữ liệu tổng thể}{10}{section.3.2}%
+\contentsline {section}{\numberline {3.3}Cấu trúc thư mục dự án}{11}{section.3.3}%
+\contentsline {section}{\numberline {3.4}Thiết kế Airflow DAG}{11}{section.3.4}%
+\contentsline {section}{\numberline {3.5}Kiến trúc CI/CD}{12}{section.3.5}%
+\contentsline {chapter}{\numberline {4}Mô tả Dữ liệu và Mô hình Học Máy}{13}{chapter.4}%
+\contentsline {section}{\numberline {4.1}Dataset: Wine Quality}{13}{section.4.1}%
+\contentsline {subsection}{\numberline {4.1.1}Mô tả 13 features}{13}{subsection.4.1.1}%
+\contentsline {section}{\numberline {4.2}Mô hình học máy}{14}{section.4.2}%
+\contentsline {subsection}{\numberline {4.2.1}Lựa chọn mô hình}{14}{subsection.4.2.1}%
+\contentsline {subsection}{\numberline {4.2.2}Hyperparameters}{14}{subsection.4.2.2}%
+\contentsline {subsection}{\numberline {4.2.3}Quy trình tiền xử lý dữ liệu}{14}{subsection.4.2.3}%
+\contentsline {subsection}{\numberline {4.2.4}Explainability -- Giải thích mô hình}{14}{subsection.4.2.4}%
+\contentsline {chapter}{\numberline {5}Quy trình Triển khai và Thực nghiệm}{15}{chapter.5}%
+\contentsline {section}{\numberline {5.1}Môi trường triển khai}{15}{section.5.1}%
+\contentsline {section}{\numberline {5.2}Các bước triển khai}{15}{section.5.2}%
+\contentsline {subsection}{\numberline {5.2.1}Bước 1: Khởi động hạ tầng}{15}{subsection.5.2.1}%
+\contentsline {subsection}{\numberline {5.2.2}Bước 2: Huấn luyện mô hình ban đầu}{15}{subsection.5.2.2}%
+\contentsline {subsection}{\numberline {5.2.3}Bước 3: Demo drift và tái huấn luyện tự động}{16}{subsection.5.2.3}%
+\contentsline {subsection}{\numberline {5.2.4}Bước 4: Giám sát và quan sát kết quả}{16}{subsection.5.2.4}%
+\contentsline {section}{\numberline {5.3}Kiểm thử (Testing)}{17}{section.5.3}%
+\contentsline {subsection}{\numberline {5.3.1}Cấu trúc bộ test}{17}{subsection.5.3.1}%
+\contentsline {subsection}{\numberline {5.3.2}Chạy kiểm thử}{17}{subsection.5.3.2}%
+\contentsline {section}{\numberline {5.4}Xử lý các thách thức kỹ thuật}{17}{section.5.4}%
+\contentsline {chapter}{\numberline {6}Kết quả Đạt được}{18}{chapter.6}%
+\contentsline {section}{\numberline {6.1}Kết quả huấn luyện mô hình}{18}{section.6.1}%
+\contentsline {section}{\numberline {6.2}Kết quả kiểm thử tự động}{18}{section.6.2}%
+\contentsline {section}{\numberline {6.3}Kết quả Airflow DAG}{18}{section.6.3}%
+\contentsline {section}{\numberline {6.4}Kết quả giám sát hệ thống}{19}{section.6.4}%
+\contentsline {subsection}{\numberline {6.4.1}Prometheus Metrics}{19}{subsection.6.4.1}%
+\contentsline {subsection}{\numberline {6.4.2}Grafana Dashboard}{19}{subsection.6.4.2}%
+\contentsline {section}{\numberline {6.5}Kết quả CI/CD}{19}{section.6.5}%
+\contentsline {section}{\numberline {6.6}So sánh với yêu cầu đề tài}{20}{section.6.6}%
+\contentsline {chapter}{\numberline {7}Kết luận và Hướng Phát triển}{21}{chapter.7}%
+\contentsline {section}{\numberline {7.1}Kết luận}{21}{section.7.1}%
+\contentsline {section}{\numberline {7.2}Hướng phát triển}{21}{section.7.2}%
+\contentsline {chapter}{Tài liệu tham khảo}{23}{chapter*.16}%
+\contentsline {chapter}{\numberline {A}Hướng dẫn cài đặt và chạy}{24}{appendix.A}%
+\contentsline {section}{\numberline {A.1}Yêu cầu hệ thống}{24}{section.A.1}%
+\contentsline {section}{\numberline {A.2}Các bước cài đặt từ đầu}{24}{section.A.2}%
+\contentsline {chapter}{\numberline {B}Cấu hình Docker Compose}{25}{appendix.B}%
+\contentsline {chapter}{\numberline {C}Cấu trúc Airflow DAG}{26}{appendix.C}%
