@@ -1,5 +1,4 @@
 import pytest
-from sklearn.datasets import load_wine
 from sklearn.ensemble import RandomForestClassifier
 import sys
 import os
@@ -8,15 +7,18 @@ from unittest.mock import patch, MagicMock
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
-@pytest.fixture
+from data_pipeline import FEATURE_NAMES, TARGET, ingest_data, clean_data  # noqa: E402
+
+@pytest.fixture(scope="session")
 def wine_data():
-    data = load_wine()
-    return data.data, data.target, data.feature_names
+    """Cleaned red + white wine data as (X, y, feature_names)."""
+    df = clean_data(ingest_data())
+    return df[FEATURE_NAMES].to_numpy(), df[TARGET].to_numpy(), FEATURE_NAMES
 
 @pytest.fixture
 def sample_features():
-    # 13 features
-    return [13.2, 1.78, 2.14, 11.2, 100.0, 2.65, 2.76, 0.26, 1.28, 4.38, 1.05, 3.4, 1050.0]
+    # 11 features
+    return [7.4, 0.7, 0.0, 1.9, 0.076, 11.0, 34.0, 0.9978, 3.51, 0.56, 9.4]
 
 @pytest.fixture
 def trained_model(wine_data):

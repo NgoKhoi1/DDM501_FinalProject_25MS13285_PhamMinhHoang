@@ -5,6 +5,7 @@ from typing import List, Dict, Any, Optional
 import mlflow
 import mlflow.pyfunc
 import numpy as np
+import pandas as pd
 import requests
 import time
 import uuid
@@ -25,11 +26,10 @@ MODEL_NAME = os.getenv('MODEL_NAME', 'wine_quality_model')
 MODEL_STAGE = os.getenv('MODEL_STAGE', 'Production')  # Production, Staging, None
 EVIDENTLY_URL = os.getenv('EVIDENTLY_URL', '')  # empty = do not capture inferences
 
-# Wine dataset features, in the order the model was trained on
+# Wine Quality features, in the order the model was trained on
 FEATURE_NAMES = [
-    'alcohol', 'malic_acid', 'ash', 'alcalinity_of_ash', 'magnesium',
-    'total_phenols', 'flavanoids', 'nonflavanoid_phenols', 'proanthocyanins',
-    'color_intensity', 'hue', 'od280/od315_of_diluted_wines', 'proline'
+    'fixed_acidity', 'volatile_acidity', 'citric_acid', 'residual_sugar', 'chlorides',
+    'free_sulfur_dioxide', 'total_sulfur_dioxide', 'density', 'pH', 'sulphates', 'alcohol'
 ]
 
 # Setup logging
@@ -89,7 +89,7 @@ PREDICTION_VALUE = Histogram(
     'model_prediction_value',
     'Distribution of prediction values',
     ['model_name'],
-    buckets=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]  # For wine quality 0-10
+    buckets=[0, 1]  # 0 = not good, 1 = good (quality >= 6)
 )
 
 # Error metrics
@@ -215,12 +215,12 @@ class ModelManager:
         if self.model is None:
             raise ValueError("Model not loaded")
         
-        # Convert to numpy array
-        features_array = np.array(features).reshape(1, -1)
+        # The model was trained on named columns
+        features_df = pd.DataFrame([features], columns=FEATURE_NAMES)
         
         # Predict
         start_time = time.time()
-        prediction = self.model.predict(features_array)
+        prediction = self.model.predict(features_df)
         latency = time.time() - start_time
         
         # Update metrics

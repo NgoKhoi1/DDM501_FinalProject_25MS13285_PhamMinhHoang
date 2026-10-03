@@ -62,8 +62,8 @@ async def health():
 
 @mock_app.post("/predict")
 async def predict(request: PredictionRequest):
-    if len(request.features) != 13:
-        raise HTTPException(status_code=400, detail="Expected 13 features")
+    if len(request.features) != 11:
+        raise HTTPException(status_code=400, detail="Expected 11 features")
     pred = float(mock_model.predict([request.features])[0])
     return {
         "prediction": pred,
@@ -145,10 +145,9 @@ class TestPredictEndpoint:
 
     def test_predict_with_feature_names(self, client, sample_features):
         feature_names = [
-            "alcohol", "malic_acid", "ash", "alcalinity_of_ash",
-            "magnesium", "total_phenols", "flavanoids",
-            "nonflavanoid_phenols", "proanthocyanins",
-            "color_intensity", "hue", "od280_od315_of_diluted_wines", "proline"
+            "fixed_acidity", "volatile_acidity", "citric_acid", "residual_sugar",
+            "chlorides", "free_sulfur_dioxide", "total_sulfur_dioxide",
+            "density", "pH", "sulphates", "alcohol"
         ]
         response = client.post("/predict", json={
             "features": sample_features,

@@ -1,13 +1,22 @@
-import requests
-import time
-import random
+"""
+Drift demo: the model is trained on red wine, then production traffic shifts to white wine.
+
+Step 1: normal traffic (red wine)   -> Evidently reports no drift
+Step 2: drifted traffic (white wine)
+Step 3: Evidently detects the drift and triggers the Airflow retraining DAG
+Step 4: the DAG retrains on red + white wine and the API serves the new model
+"""
 import argparse
+import csv
 import os
-import numpy as np
-from sklearn.datasets import load_wine
+import random
+import sys
+import time
+
+import requests
 from colorama import init, Fore
 
-import sys
+from training import AIRFLOW_URL, DAG_ID, wait_for_dag_run
 
 # Ensure UTF-8 output on Windows terminal
 if sys.stdout.encoding != 'utf-8':
@@ -20,12 +29,17 @@ init(autoreset=True)
 
 API_URL = os.getenv("API_URL", "http://localhost:8000")
 EVIDENTLY_URL = os.getenv("EVIDENTLY_URL", "http://localhost:8001")
-AIRFLOW_URL = os.getenv("AIRFLOW_URL", "http://localhost:8080")
-AIRFLOW_AUTH = (os.getenv("AIRFLOW_USER", "admin"), os.getenv("AIRFLOW_PASS", "admin"))
-DAG_ID = "ml_training_pipeline"
+DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data")
 
 N_NORMAL = 100
 N_DRIFT = 250
+
+
+def load_samples(color, n):
+    """Sample n rows of features (quality column dropped) from the wine CSV of the given color."""
+    with open(os.path.join(DATA_DIR, f"winequality-{color}.csv"), newline="") as f:
+        rows = list(csv.reader(f, delimiter=";"))[1:]
+    return [[float(v) for v in row[:-1]] for row in random.sample(rows, n)]
 
 
 def send_request(features):
@@ -63,20 +77,25 @@ def analyze(window_size):
     return result
 
 
+def model_version():
+    response = requests.get(f"{API_URL}/health", timeout=10)
+    response.raise_for_status()
+    return response.json()["model_version"]
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--dry-run", action="store_true", help="Generate the traffic without sending any request")
     args = parser.parse_args()
 
-    X = load_wine().data
-
     if not args.dry_run:
+        version_before = model_version()
+        print(f"API is serving model version {version_before}\n")
         # Start from an empty window so only this run's traffic is analyzed
         requests.delete(f"{EVIDENTLY_URL}/production-data", timeout=10).raise_for_status()
 
-    print(Fore.CYAN + f"Step 1: Send {N_NORMAL} requests with normal data")
-    normal = [random.choice(X).tolist() for _ in range(N_NORMAL)]
-    normal_success = send_batch(normal, "normal", args.dry_run)
+    print(Fore.CYAN + f"Step 1: Send {N_NORMAL} requests with normal data (red wine)")
+    normal_success = send_batch(load_samples("red", N_NORMAL), "normal", args.dry_run)
     print(Fore.GREEN + f"Summary Step 1: {normal_success}/{N_NORMAL} normal requests successful.")
     if not args.dry_run:
         baseline = analyze(N_NORMAL)
@@ -84,14 +103,8 @@ def main():
             print(Fore.YELLOW + "Unexpected: drift flagged on normal traffic.")
     print()
 
-    print(Fore.CYAN + f"Step 2: Send {N_DRIFT} requests with perturbed features (Drift)")
-    drifted = []
-    for _ in range(N_DRIFT):
-        sample = random.choice(X)
-        scale = random.uniform(1.5, 3.0)
-        noise = np.random.normal(0, np.std(sample) * 0.5, len(sample))
-        drifted.append((sample * scale + noise).tolist())
-    drift_success = send_batch(drifted, "drift", args.dry_run)
+    print(Fore.CYAN + f"Step 2: Send {N_DRIFT} requests with drifted data (white wine)")
+    drift_success = send_batch(load_samples("white", N_DRIFT), "drift", args.dry_run)
     print(Fore.GREEN + f"Summary Step 2: {drift_success}/{N_DRIFT} drift requests successful.\n")
 
     if args.dry_run:
@@ -100,23 +113,25 @@ def main():
 
     print(Fore.CYAN + "Step 3: Run Evidently Check")
     result = analyze(N_DRIFT)
-    print()
-
-    print(Fore.CYAN + "Step 4: Verify Trigger")
     if not result["drift_detected"]:
         print(Fore.RED + "No drift detected on drifted traffic.")
         sys.exit(1)
     if not result["retrain_triggered"]:
         print(Fore.RED + "Drift detected but Evidently failed to trigger the Airflow DAG (see Evidently logs).")
         sys.exit(1)
-
-    # Confirm the DAG run really exists in Airflow
-    run_url = f"{AIRFLOW_URL}/api/v1/dags/{DAG_ID}/dagRuns/{result['dag_run_id']}"
-    response = requests.get(run_url, auth=AIRFLOW_AUTH, timeout=10)
-    response.raise_for_status()
     print(Fore.GREEN + "Data drift detected -> Evidently triggered the Airflow retraining DAG.")
-    print(f"  dag_run_id : {result['dag_run_id']}")
-    print(f"  state      : {response.json()['state']}")
+    print(f"  dag_run_id : {result['dag_run_id']}\n")
+
+    print(Fore.CYAN + "Step 4: Verify Retraining")
+    if wait_for_dag_run(result["dag_run_id"]) != "success":
+        print(Fore.RED + f"Retraining failed, see {AIRFLOW_URL}/dags/{DAG_ID}/grid")
+        sys.exit(1)
+    version_after = model_version()
+    if version_after == version_before:
+        print(Fore.YELLOW + f"Retraining finished but the new model was not promoted (still version {version_before}).")
+    else:
+        print(Fore.GREEN + f"Retrained on red + white wine: API now serves model version {version_after} "
+                           f"(was {version_before}).")
 
 
 if __name__ == "__main__":

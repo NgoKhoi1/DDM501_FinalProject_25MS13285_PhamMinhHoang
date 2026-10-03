@@ -178,13 +178,6 @@ class DataStore:
                         logger.info(f"📋 Reference metadata: {self.reference_metadata.get('description', 'N/A')}")
             except Exception as e:
                 logger.error(f"❌ Failed to load reference data: {e}")
-        else:
-            # No uploaded reference: fall back to the training dataset
-            from sklearn.datasets import load_wine
-            wine = load_wine()
-            self.reference_data = pd.DataFrame(wine.data, columns=wine.feature_names)
-            self.reference_metadata = {"description": "Wine training dataset (default)"}
-            logger.info(f"✅ Using training dataset as reference: {len(self.reference_data)} samples")
     
     def save_reference_data(self, data: pd.DataFrame, metadata: Dict = None):
         """Save reference data to disk"""
@@ -521,7 +514,9 @@ def perform_drift_analysis(
         
         # Create report
         report = Report(metrics=[
-            DataDriftPreset(drift_share=threshold),
+            # K-S test for every numeric feature: the default switches to Wasserstein distance
+            # above 1000 reference rows, which flags drift on small windows of normal traffic
+            DataDriftPreset(drift_share=threshold, num_stattest="ks"),
             DataQualityPreset()
         ])
         

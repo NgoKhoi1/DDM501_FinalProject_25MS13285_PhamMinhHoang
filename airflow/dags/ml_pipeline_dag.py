@@ -1,26 +1,36 @@
 import os
 import sys
-import pandas as pd
-import numpy as np
-import joblib
-from datetime import datetime, timedelta
-import tempfile
 import json
-from airflow import DAG
-from airflow.operators.python import PythonOperator
-from sklearn.datasets import load_wine
-from sklearn.preprocessing import StandardScaler
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
-import mlflow
-from mlflow.tracking import MlflowClient
+from datetime import datetime, timedelta
 
-# MLflow env vars
-os.environ['MLFLOW_TRACKING_URI'] = os.getenv('MLFLOW_TRACKING_URI', 'http://mlflow:5000')
-os.environ['AWS_ACCESS_KEY_ID'] = os.getenv('AWS_ACCESS_KEY_ID', 'minio')
-os.environ['AWS_SECRET_ACCESS_KEY'] = os.getenv('AWS_SECRET_ACCESS_KEY', 'minio123')
-os.environ['MLFLOW_S3_ENDPOINT_URL'] = os.getenv('MLFLOW_S3_ENDPOINT_URL', 'http://minio:9000')
-os.environ['MLFLOW_S3_IGNORE_TLS'] = 'true'
+import mlflow
+import requests
+from airflow import DAG
+from airflow.exceptions import AirflowSkipException
+from airflow.operators.python import PythonOperator
+
+# Pipeline logic lives in src/ (mounted next to the dags folder)
+sys.path.insert(0, os.getenv('SRC_DIR', '/opt/airflow/src'))
+
+from data_pipeline import (  # noqa: E402
+    COLORS, FEATURE_NAMES, TARGET,
+    ingest_data, clean_data, split_data, save_data_artifact, load_data_artifact
+)
+from feature_engineering import fit_scaler, transform_features, save_scaler, load_scaler  # noqa: E402
+from train import DEFAULT_PARAMS, train_model, build_serving_pipeline, log_to_mlflow  # noqa: E402
+from evaluate import evaluate_model, load_production_model, should_promote, register_and_promote  # noqa: E402
+
+mlflow.set_tracking_uri(os.getenv('MLFLOW_TRACKING_URI', 'http://mlflow:5000'))
+API_URL = os.getenv('API_URL', 'http://api:8000')
+EVIDENTLY_URL = os.getenv('EVIDENTLY_URL', 'http://evidently:8001')
+
+WORK_DIR = '/tmp/ml_pipeline'
+RAW_PATH = f'{WORK_DIR}/raw_data.csv'
+CLEAN_PATH = f'{WORK_DIR}/clean_data.csv'
+TRAIN_PATH = f'{WORK_DIR}/train_data.csv'
+TEST_PATH = f'{WORK_DIR}/test_data.csv'
+SCALER_PATH = f'{WORK_DIR}/artifacts/scaler.pkl'
+RUN_INFO_PATH = f'{WORK_DIR}/run_info.json'
 
 default_args = {
     'owner': 'airflow',
@@ -31,95 +41,89 @@ default_args = {
     'retry_delay': timedelta(minutes=1),
 }
 
-def data_ingestion(**kwargs):
-    os.makedirs('/tmp/ml_pipeline', exist_ok=True)
-    wine = load_wine()
-    df = pd.DataFrame(data=wine.data, columns=wine.feature_names)
-    df['target'] = wine.target
-    df.to_csv('/tmp/ml_pipeline/raw_data.csv', index=False)
+
+def data_ingestion(dag_run, **kwargs):
+    # Trigger with {"colors": ["red"]} to train on a subset; default is all the data
+    colors = dag_run.conf.get('colors', list(COLORS))
+    save_data_artifact(ingest_data(colors), RAW_PATH)
+
 
 def data_cleaning(**kwargs):
-    df = pd.read_csv('/tmp/ml_pipeline/raw_data.csv')
-    df = df.dropna()
-    # Simple cleaning logic
-    df.to_csv('/tmp/ml_pipeline/clean_data.csv', index=False)
+    save_data_artifact(clean_data(load_data_artifact(RAW_PATH)), CLEAN_PATH)
+
 
 def feature_engineering(**kwargs):
-    df = pd.read_csv('/tmp/ml_pipeline/clean_data.csv')
-    X = df.drop('target', axis=1)
-    y = df['target']
-    scaler = StandardScaler()
-    X_scaled = pd.DataFrame(scaler.fit_transform(X), columns=X.columns)
-    X_scaled['target'] = y
-    
-    os.makedirs('/tmp/ml_pipeline/artifacts', exist_ok=True)
-    joblib.dump(scaler, '/tmp/ml_pipeline/artifacts/scaler.pkl')
-    X_scaled.to_csv('/tmp/ml_pipeline/transformed_data.csv', index=False)
+    train_df, test_df = split_data(load_data_artifact(CLEAN_PATH))
+    save_data_artifact(train_df, TRAIN_PATH)
+    save_data_artifact(test_df, TEST_PATH)
+    save_scaler(fit_scaler(train_df[FEATURE_NAMES]), SCALER_PATH)
 
-def model_training(**kwargs):
-    df = pd.read_csv('/tmp/ml_pipeline/transformed_data.csv')
-    X = df.drop('target', axis=1)
-    y = df['target']
-    
-    model = RandomForestClassifier(n_estimators=100, random_state=42)
-    
-    mlflow.set_experiment("wine_quality_experiment")
-    with mlflow.start_run() as run:
-        model.fit(X, y)
-        preds = model.predict(X)
-        
-        accuracy = accuracy_score(y, preds)
-        mlflow.log_metric("accuracy", accuracy)
-        mlflow.sklearn.log_model(model, "model")
-        
-        # Save run_id for next step
-        with open('/tmp/ml_pipeline/run_info.json', 'w') as f:
-            json.dump({'run_id': run.info.run_id}, f)
+
+def model_training(dag_run, **kwargs):
+    train_df = load_data_artifact(TRAIN_PATH)
+    test_df = load_data_artifact(TEST_PATH)
+    scaler = load_scaler(SCALER_PATH)
+
+    model = train_model(transform_features(train_df[FEATURE_NAMES], scaler), train_df[TARGET], DEFAULT_PARAMS)
+    pipeline = build_serving_pipeline(scaler, model)
+
+    run_id = log_to_mlflow(
+        pipeline, test_df[FEATURE_NAMES], test_df[TARGET], DEFAULT_PARAMS,
+        tags={
+            'colors': ','.join(sorted(train_df['color'].unique())),
+            'train_rows': len(train_df),
+            'triggered_by': dag_run.conf.get('triggered_by', 'manual')
+        }
+    )
+    # Save run_id for next step
+    with open(RUN_INFO_PATH, 'w') as f:
+        json.dump({'run_id': run_id}, f)
+
 
 def model_evaluation_and_registration(**kwargs):
-    df = pd.read_csv('/tmp/ml_pipeline/transformed_data.csv')
-    X = df.drop('target', axis=1)
-    y = df['target']
-    
-    with open('/tmp/ml_pipeline/run_info.json', 'r') as f:
-        run_info = json.load(f)
-    run_id = run_info['run_id']
-    
-    client = MlflowClient()
-    
-    # Load newly trained model
-    model_uri = f"runs:/{run_id}/model"
-    model = mlflow.sklearn.load_model(model_uri)
-    preds = model.predict(X)
-    accuracy = accuracy_score(y, preds)
-    
-    # Check if a production model exists
-    model_name = "wine_quality_model"
-    try:
-        latest_versions = client.get_latest_versions(model_name, stages=["Production"])
-        if latest_versions:
-            prod_version = latest_versions[0].version
-            prod_model_uri = f"models:/{model_name}/Production"
-            prod_model = mlflow.sklearn.load_model(prod_model_uri)
-            prod_preds = prod_model.predict(X)
-            prod_accuracy = accuracy_score(y, prod_preds)
-            if accuracy > prod_accuracy:
-                promote = True
-            else:
-                promote = False
-        else:
-            promote = True
-    except Exception as e:
-        promote = True
-        
+    """Returns True (pushed to XCom) when the candidate was promoted to Production."""
+    test_df = load_data_artifact(TEST_PATH)
+    X_test, y_test = test_df[FEATURE_NAMES], test_df[TARGET]
+
+    with open(RUN_INFO_PATH, 'r') as f:
+        run_id = json.load(f)['run_id']
+
+    candidate = mlflow.sklearn.load_model(f"runs:/{run_id}/model")
+    candidate_metrics = evaluate_model(candidate, X_test, y_test)
+
+    # Candidate and production are compared on the same test set
+    production = load_production_model()
+    promote = True
+    if production is not None:
+        production_metrics = evaluate_model(production, X_test, y_test)
+        promote = should_promote(candidate_metrics, production_metrics)
+        with mlflow.start_run(run_id=run_id):
+            mlflow.log_metric('production_accuracy', production_metrics['accuracy'])
+
     if promote:
-        model_version = mlflow.register_model(model_uri, model_name)
-        client.transition_model_version_stage(
-            name=model_name,
-            version=model_version.version,
-            stage="Production",
-            archive_existing_versions=True
-        )
+        register_and_promote(run_id)
+    return promote
+
+
+def deploy_model(ti, **kwargs):
+    if not ti.xcom_pull(task_ids='model_evaluation_and_registration'):
+        raise AirflowSkipException("Candidate was not promoted, nothing to deploy")
+
+    # Serving API picks up the new Production model
+    requests.post(f"{API_URL}/model/reload", timeout=60).raise_for_status()
+
+    # Drift is now measured against the data the new model was trained on
+    train_df = load_data_artifact(TRAIN_PATH)
+    requests.post(
+        f"{EVIDENTLY_URL}/reference",
+        json={
+            'data': train_df[FEATURE_NAMES].to_dict(orient='records'),
+            'feature_names': FEATURE_NAMES,
+            'description': f"Training data ({','.join(sorted(train_df['color'].unique()))} wine)"
+        },
+        timeout=60
+    ).raise_for_status()
+
 
 with DAG(
     dag_id='ml_training_pipeline',
@@ -127,13 +131,15 @@ with DAG(
     schedule_interval=None,
     start_date=datetime(2024, 1, 1),
     catchup=False,
+    max_active_runs=1,  # tasks share WORK_DIR
     tags=['ml', 'training', 'wine_quality'],
 ) as dag:
-    
+
     t1 = PythonOperator(task_id='data_ingestion', python_callable=data_ingestion)
     t2 = PythonOperator(task_id='data_cleaning', python_callable=data_cleaning)
     t3 = PythonOperator(task_id='feature_engineering', python_callable=feature_engineering)
     t4 = PythonOperator(task_id='model_training', python_callable=model_training)
     t5 = PythonOperator(task_id='model_evaluation_and_registration', python_callable=model_evaluation_and_registration)
-    
-    t1 >> t2 >> t3 >> t4 >> t5
+    t6 = PythonOperator(task_id='deploy_model', python_callable=deploy_model)
+
+    t1 >> t2 >> t3 >> t4 >> t5 >> t6
