@@ -5,7 +5,6 @@ MLflow-dependent functions are mocked.
 import pytest
 import sys
 import os
-import numpy as np
 from unittest.mock import patch, MagicMock
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split

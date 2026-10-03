@@ -113,33 +113,57 @@ FEATURE_VALUE = Histogram(
 
 class PredictionRequest(BaseModel):
     """Request model for prediction"""
-    features: List[float] = Field(..., description="List of feature values")
+    features: List[float] = Field(
+        ...,
+        description="The 11 physicochemical measurements of the wine, in this order: " + ", ".join(FEATURE_NAMES)
+    )
     feature_names: Optional[List[str]] = Field(None, description="Feature names (optional)")
-    
-    class Config:
-        schema_extra = {
+
+    model_config = {
+        "json_schema_extra": {
             "example": {
-                "features": [7.4, 0.7, 0.0, 1.9, 0.076, 11.0, 34.0, 0.9978, 3.51, 0.56, 9.4],
-                "feature_names": ["fixed_acidity", "volatile_acidity", "citric_acid", ...]
+                "features": [7.4, 0.7, 0.0, 1.9, 0.076, 11.0, 34.0, 0.9978, 3.51, 0.56, 9.4]
             }
         }
+    }
 
 class PredictionResponse(BaseModel):
     """Response model for prediction"""
-    prediction_id: str
-    prediction: float
+    prediction_id: str = Field(..., description="Unique id of this prediction")
+    prediction: float = Field(..., description="1 = good wine (quality >= 6), 0 = not good")
     model_name: str
-    model_version: str
+    model_version: str = Field(..., description="Version in the MLflow Model Registry")
     timestamp: str
     latency_ms: float
 
+    # model_name / model_version are fields, not pydantic's own model_* namespace
+    model_config = {
+        "protected_namespaces": (),
+        "json_schema_extra": {
+            "example": {
+                "prediction_id": "12ab2110-e845-443d-b8ae-e18ff8ee4a5c",
+                "prediction": 0.0,
+                "model_name": "wine_quality_model",
+                "model_version": "1",
+                "timestamp": "2026-10-03T16:30:38.938645",
+                "latency_ms": 4.2
+            }
+        }
+    }
+
 class HealthResponse(BaseModel):
     """Health check response"""
-    status: str
+    status: str = Field(..., description="healthy when a model is loaded, otherwise unhealthy")
     model_loaded: bool
     model_name: str
     model_version: str
     uptime_seconds: float
+
+    model_config = {"protected_namespaces": ()}
+
+class ErrorResponse(BaseModel):
+    """Error body returned with 4xx / 5xx status codes"""
+    detail: str
 
 # ============================================
 # MODEL MANAGER
@@ -246,9 +270,18 @@ class ModelManager:
 # ============================================
 
 app = FastAPI(
-    title="ML Model API",
-    description="Production ML model serving with monitoring",
-    version="1.0.0"
+    title="Wine Quality API",
+    description=(
+        "Serves the Production version of `wine_quality_model` from the MLflow Model Registry.\n\n"
+        "The model predicts whether a wine is good (quality >= 6) from 11 physicochemical measurements. "
+        "Every prediction is exported to Prometheus and forwarded to Evidently for drift detection."
+    ),
+    version="1.0.0",
+    openapi_tags=[
+        {"name": "prediction", "description": "Model inference"},
+        {"name": "model", "description": "Model registry operations"},
+        {"name": "operations", "description": "Health check and metrics"},
+    ]
 )
 
 # Initialize model manager
@@ -331,7 +364,7 @@ def capture_to_evidently(features: List[float], prediction: float, model_version
 # ENDPOINTS
 # ============================================
 
-@app.get("/")
+@app.get("/", tags=["operations"])
 async def root():
     """Root endpoint"""
     return {
@@ -345,7 +378,7 @@ async def root():
         }
     }
 
-@app.get("/health", response_model=HealthResponse)
+@app.get("/health", response_model=HealthResponse, tags=["operations"])
 async def health_check():
     """Health check endpoint"""
     uptime = time.time() - app_start_time
@@ -358,7 +391,16 @@ async def health_check():
         uptime_seconds=uptime
     )
 
-@app.post("/predict", response_model=PredictionResponse)
+@app.post(
+    "/predict",
+    response_model=PredictionResponse,
+    tags=["prediction"],
+    responses={
+        400: {"model": ErrorResponse, "description": "Wrong number of features"},
+        500: {"model": ErrorResponse, "description": "Prediction failed"},
+        503: {"model": ErrorResponse, "description": "Model not loaded"},
+    }
+)
 async def predict(request: PredictionRequest, background_tasks: BackgroundTasks):
     """Prediction endpoint"""
     try:
@@ -419,7 +461,7 @@ async def predict(request: PredictionRequest, background_tasks: BackgroundTasks)
         logger.error(f"Prediction error: {e}")
         raise HTTPException(status_code=500, detail="Prediction failed")
 
-@app.get("/model/info")
+@app.get("/model/info", tags=["model"], responses={503: {"model": ErrorResponse}})
 async def model_info():
     """Get model information"""
     if model_manager.model is None:
@@ -433,7 +475,7 @@ async def model_info():
         "tracking_uri": MLFLOW_TRACKING_URI
     }
 
-@app.post("/model/reload")
+@app.post("/model/reload", tags=["model"], responses={500: {"model": ErrorResponse}})
 async def reload_model():
     """Reload model from registry"""
     logger.info(" Reloading model...")
@@ -449,7 +491,7 @@ async def reload_model():
     else:
         raise HTTPException(status_code=500, detail="Model reload failed")
 
-@app.get("/metrics")
+@app.get("/metrics", tags=["operations"])
 async def metrics():
     """Prometheus metrics endpoint"""
     return Response(content=generate_latest(), media_type=CONTENT_TYPE_LATEST)

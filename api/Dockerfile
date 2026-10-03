@@ -1,23 +1,30 @@
-FROM python:3.10-slim
+# ---- Build stage: install Python dependencies into a virtualenv ----
+FROM python:3.10-slim AS builder
 
-WORKDIR /app
+RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
 
-# Install system dependencies
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
-
-# Copy requirements
 COPY requirements.txt .
-
-# Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy application code
+# ---- Runtime stage: only the virtualenv and the application code ----
+FROM python:3.10-slim
+
+# curl is used by the health checks; the app runs as an unprivileged user
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends curl && \
+    rm -rf /var/lib/apt/lists/* && \
+    useradd --create-home --uid 1000 appuser
+
+COPY --from=builder /opt/venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH" \
+    PYTHONUNBUFFERED=1
+
+WORKDIR /app
 COPY main.py .
 
-# Expose port
+USER appuser
+
 EXPOSE 8000
 
 # Health check

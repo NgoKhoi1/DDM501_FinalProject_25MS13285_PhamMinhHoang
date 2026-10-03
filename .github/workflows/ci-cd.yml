@@ -6,6 +6,11 @@ on:
   pull_request:
     branches: [main]
 
+# Same shell on Linux and Windows self-hosted runners
+defaults:
+  run:
+    shell: bash
+
 jobs:
   lint:
     runs-on: self-hosted
@@ -16,15 +21,11 @@ jobs:
         with:
           python-version: '3.10'
       - name: Install dependencies
-        run: |
-          pip install flake8 ruff black
+        run: pip install flake8 ruff
       - name: Lint with flake8
-        run: |
-          flake8 ml-monitoring/src/ ml-monitoring/tests/ --max-line-length=120 --ignore=E501,W503
-      - name: Check formatting with ruff
-        run: |
-          ruff check ml-monitoring/src/ ml-monitoring/tests/ --fix
-        continue-on-error: true
+        run: flake8 src/ tests/
+      - name: Lint with ruff
+        run: ruff check src/ tests/
 
   test:
     runs-on: self-hosted
@@ -36,43 +37,40 @@ jobs:
         with:
           python-version: '3.10'
       - name: Install dependencies
-        run: |
-          cd ml-monitoring
-          pip install -r requirements.txt
-          pip install pytest pytest-cov pytest-asyncio httpx
+        run: pip install -r requirements.txt
       - name: Run tests with coverage
-        run: |
-          cd ml-monitoring
-          pytest tests/ -v --cov=src --cov=serving --cov-report=term-missing --cov-report=html --cov-fail-under=80
+        run: pytest tests/ -v --cov=src --cov=api --cov-report=term-missing --cov-report=html --cov-fail-under=80
       - name: Upload coverage report
         uses: actions/upload-artifact@v4
         with:
           name: coverage-report
-          path: ml-monitoring/htmlcov/
+          path: htmlcov/
 
   build:
     runs-on: self-hosted
     needs: test
     steps:
       - uses: actions/checkout@v4
+      - name: Create .env
+        run: test -f .env || cp .env.example .env
       - name: Build Docker images
-        run: |
-          cd ml-monitoring
-          docker compose build api
-          docker compose build evidently
-      
+        run: docker compose build
+
   deploy:
     runs-on: self-hosted
     needs: build
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     steps:
       - uses: actions/checkout@v4
+      - name: Create .env
+        run: test -f .env || cp .env.example .env
       - name: Deploy services
-        run: |
-          cd ml-monitoring
-          docker compose down
-          docker compose up -d
+        run: docker compose up -d --build
       - name: Health check
         run: |
-          sleep 30
-          curl -f http://localhost:8000/health || exit 1
+          API_PORT=$(grep -E '^API_PORT=' .env | cut -d= -f2 | tr -d '\r')
+          for i in $(seq 1 30); do
+            curl -fs "http://localhost:${API_PORT:-8000}/health" && exit 0
+            sleep 5
+          done
+          echo "API did not become healthy" && exit 1

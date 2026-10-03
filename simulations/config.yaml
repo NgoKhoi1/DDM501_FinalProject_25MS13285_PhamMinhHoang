@@ -13,7 +13,7 @@ api:
 model:
   name: "wine_quality_model"
   version: "1"
-  feature_count: 13
+  feature_count: 11
 
 # Wine Dataset Feature Ranges (for realistic data generation)
 features:

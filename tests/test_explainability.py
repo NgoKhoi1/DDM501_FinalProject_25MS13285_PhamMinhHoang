@@ -2,19 +2,17 @@
 Tests for explainability module.
 SHAP import is handled gracefully if not installed.
 """
-import pytest
 import sys
 import os
 import tempfile
 import numpy as np
 import pandas as pd
-from unittest.mock import patch, MagicMock
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.model_selection import train_test_split
+from unittest.mock import patch, MagicMock
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
-from explainability import plot_feature_importance, generate_report
+from explainability import plot_feature_importance, generate_report, compute_permutation_importance
 
 
 class TestFeatureImportance:
@@ -38,7 +36,6 @@ class TestFeatureImportance:
 
     def test_plot_handles_no_importances(self, wine_data):
         """Model without feature_importances_ should be handled gracefully."""
-        from unittest.mock import MagicMock
         mock_model = MagicMock(spec=[])  # No attributes
         del mock_model.feature_importances_
         _, _, feature_names = wine_data
@@ -135,3 +132,34 @@ class TestShapReport:
             list(feature_names)
         )
         assert result is None
+
+
+class TestPermutationImportance:
+    """Tests for compute_permutation_importance."""
+
+    def test_sorted_with_one_row_per_feature(self, trained_model, wine_data):
+        X, y, feature_names = wine_data
+        importance = compute_permutation_importance(trained_model, X[:300], y[:300], list(feature_names), n_repeats=3)
+        assert sorted(importance.index) == sorted(feature_names)
+        assert importance['importance_mean'].is_monotonic_decreasing
+
+    def test_informative_feature_ranks_above_noise(self):
+        rng = np.random.default_rng(0)
+        X = pd.DataFrame({'signal': rng.normal(size=400), 'noise': rng.normal(size=400)})
+        y = (X['signal'] > 0).astype(int)
+        model = RandomForestClassifier(n_estimators=20, random_state=0).fit(X, y)
+        importance = compute_permutation_importance(model, X, y, ['signal', 'noise'], n_repeats=3)
+        assert importance.index[0] == 'signal'
+        assert importance.loc['signal', 'importance_mean'] > 0.2
+
+
+class TestReportArtifacts:
+    def test_report_contains_all_three_methods(self, trained_model, wine_data, tmp_path):
+        X, y, feature_names = wine_data
+        generate_report(
+            trained_model, pd.DataFrame(X[:200], columns=feature_names), pd.Series(y[:200]),
+            list(feature_names), str(tmp_path)
+        )
+        for name in ("feature_importance.png", "permutation_importance.png", "shap_summary.png",
+                     "permutation_importance.csv", "report.html"):
+            assert (tmp_path / name).stat().st_size > 0, name

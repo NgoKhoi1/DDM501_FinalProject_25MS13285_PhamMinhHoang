@@ -17,7 +17,9 @@ from data_pipeline import (  # noqa: E402
     ingest_data, clean_data, split_data, save_data_artifact, load_data_artifact
 )
 from feature_engineering import fit_scaler, transform_features, save_scaler, load_scaler  # noqa: E402
-from train import DEFAULT_PARAMS, train_model, build_serving_pipeline, log_to_mlflow  # noqa: E402
+from train import tune_model, build_serving_pipeline, log_to_mlflow  # noqa: E402
+from fairness import fairness_report  # noqa: E402
+from explainability import generate_report  # noqa: E402
 from evaluate import evaluate_model, load_production_model, should_promote, register_and_promote  # noqa: E402
 
 mlflow.set_tracking_uri(os.getenv('MLFLOW_TRACKING_URI', 'http://mlflow:5000'))
@@ -31,6 +33,7 @@ TRAIN_PATH = f'{WORK_DIR}/train_data.csv'
 TEST_PATH = f'{WORK_DIR}/test_data.csv'
 SCALER_PATH = f'{WORK_DIR}/artifacts/scaler.pkl'
 RUN_INFO_PATH = f'{WORK_DIR}/run_info.json'
+REPORT_DIR = f'{WORK_DIR}/report'
 
 default_args = {
     'owner': 'airflow',
@@ -64,16 +67,29 @@ def model_training(dag_run, **kwargs):
     test_df = load_data_artifact(TEST_PATH)
     scaler = load_scaler(SCALER_PATH)
 
-    model = train_model(transform_features(train_df[FEATURE_NAMES], scaler), train_df[TARGET], DEFAULT_PARAMS)
+    # Hyperparameter tuning with 5-fold cross-validation on the training set
+    search = tune_model(transform_features(train_df[FEATURE_NAMES], scaler), train_df[TARGET])
+    model = search.best_estimator_
     pipeline = build_serving_pipeline(scaler, model)
 
+    # Responsible AI: explainability report (on a sample of the test set) and fairness across wine colors
+    sample = test_df.sample(min(300, len(test_df)), random_state=42)
+    generate_report(
+        model, transform_features(sample[FEATURE_NAMES], scaler), sample[TARGET],
+        FEATURE_NAMES, f'{REPORT_DIR}/explainability'
+    )
+    fairness = fairness_report(pipeline, test_df[FEATURE_NAMES], test_df[TARGET], test_df['color'])
+
     run_id = log_to_mlflow(
-        pipeline, test_df[FEATURE_NAMES], test_df[TARGET], DEFAULT_PARAMS,
+        pipeline, test_df[FEATURE_NAMES], test_df[TARGET], search.best_params_,
         tags={
             'colors': ','.join(sorted(train_df['color'].unique())),
             'train_rows': len(train_df),
             'triggered_by': dag_run.conf.get('triggered_by', 'manual')
-        }
+        },
+        extra_metrics=fairness,
+        artifacts_dir=REPORT_DIR,
+        search=search
     )
     # Save run_id for next step
     with open(RUN_INFO_PATH, 'w') as f:

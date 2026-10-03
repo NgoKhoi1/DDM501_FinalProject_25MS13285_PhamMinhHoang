@@ -14,7 +14,7 @@ from sklearn.preprocessing import StandardScaler
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
-from train import train_model, build_serving_pipeline, log_to_mlflow
+from train import train_model, tune_model, build_serving_pipeline, log_to_mlflow
 
 
 class TestTrainModel:
@@ -119,3 +119,41 @@ class TestLogToMlflow:
         logged_metrics = mock_mlflow.log_metrics.call_args[0][0]
         assert set(logged_metrics) == {'accuracy', 'f1_score', 'precision', 'recall'}
         assert all(0.0 <= v <= 1.0 for v in logged_metrics.values())
+
+    @patch('train.mlflow')
+    def test_log_to_mlflow_extra_metrics_and_artifacts(self, mock_mlflow, fitted, tmp_path):
+        pipeline, X_test, y_test = fitted
+        log_to_mlflow(pipeline, X_test, y_test, {}, extra_metrics={'accuracy_gap': 0.1}, artifacts_dir=str(tmp_path))
+
+        assert mock_mlflow.log_metrics.call_args_list[0][0][0]['accuracy_gap'] == 0.1
+        mock_mlflow.log_artifacts.assert_called_once_with(str(tmp_path))
+
+    @patch('train.mlflow')
+    def test_log_to_mlflow_logs_every_cv_candidate(self, mock_mlflow, fitted, wine_data):
+        pipeline, X_test, y_test = fitted
+        X, y, _ = wine_data
+        search = tune_model(X[:300], y[:300], param_grid={'n_estimators': [5, 10]}, cv=3)
+
+        log_to_mlflow(pipeline, X_test, y_test, search.best_params_, search=search)
+
+        nested_runs = [c for c in mock_mlflow.start_run.call_args_list if c.kwargs.get('nested')]
+        assert len(nested_runs) == 2
+        logged = [c[0][0] for c in mock_mlflow.log_metrics.call_args_list]
+        assert sum('cv_accuracy_mean' in metrics for metrics in logged) == 3  # best + 2 candidates
+
+
+class TestTuneModel:
+    """Tests for tune_model (grid search with cross-validation)."""
+
+    def test_tune_evaluates_every_candidate(self, wine_data):
+        X, y, _ = wine_data
+        search = tune_model(X[:300], y[:300], param_grid={'n_estimators': [5, 10], 'max_depth': [2, 4]}, cv=3)
+        assert len(search.cv_results_['params']) == 4
+        assert search.best_params_ in search.cv_results_['params']
+        assert 0.0 <= search.best_score_ <= 1.0
+
+    def test_tune_returns_fitted_best_model(self, wine_data):
+        X, y, _ = wine_data
+        search = tune_model(X[:300], y[:300], param_grid={'n_estimators': [5]}, cv=3)
+        assert isinstance(search.best_estimator_, RandomForestClassifier)
+        assert len(search.best_estimator_.predict(X[:5])) == 5

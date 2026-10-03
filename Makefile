@@ -1,4 +1,4 @@
-.PHONY: up down build test lint train simulate-drift logs airflow-up airflow-down clean
+.PHONY: up down build test lint train simulate-drift logs clean
 
 up:
 	docker compose up -d
@@ -10,10 +10,10 @@ build:
 	docker compose build
 
 test:
-	pytest tests/ -v --cov=src --cov-report=term-missing
+	pytest tests/ -v --cov=src --cov=api --cov-report=term-missing
 
 lint:
-	flake8 src/ tests/ --max-line-length=120
+	flake8 src/ tests/
 	ruff check src/ tests/
 
 train:
@@ -24,12 +24,6 @@ simulate-drift:
 
 logs:
 	docker compose logs -f
-
-airflow-up:
-	docker compose -f airflow/docker-compose.airflow.yml up -d
-
-airflow-down:
-	docker compose -f airflow/docker-compose.airflow.yml down
 
 clean:
 	docker compose down -v --remove-orphans

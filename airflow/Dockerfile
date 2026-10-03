@@ -6,4 +6,5 @@ FROM apache/airflow:2.8.4-python3.10
 RUN pip install --no-cache-dir \
     mlflow==2.16.2 \
     scikit-learn==1.5.2 \
-    numpy==1.26.4
+    numpy==1.26.4 \
+    shap==0.46.0
