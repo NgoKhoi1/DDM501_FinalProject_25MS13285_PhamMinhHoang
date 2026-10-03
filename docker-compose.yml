@@ -13,7 +13,7 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./scripts/init-db.sh:/docker-entrypoint-initdb.d/init-db.sh
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PORT:-5432}:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U mlflow"]
       interval: 5s
@@ -31,9 +31,9 @@ services:
       dockerfile: Dockerfile
     container_name: ${USER}_monitoring-mlflow
     volumes:
-      - C:/mlflow:/mlflow
+      - mlflow_data:/mlflow
     ports:
-      - "5000:5000"
+      - "${MLFLOW_PORT:-5000}:5000"
     depends_on:
       postgres:
         condition: service_healthy
@@ -55,13 +55,12 @@ services:
       dockerfile: Dockerfile
     container_name: ${USER}_monitoring-api
     ports:
-      - "8000:8000"
+      - "${API_PORT:-8000}:8000"
     environment:
       - MLFLOW_TRACKING_URI=http://mlflow:5000
       - MODEL_NAME=wine_quality_model
       - MODEL_STAGE=Production
-    volumes:
-      - C:/mlflow:/mlflow
+      - EVIDENTLY_URL=http://evidently:8001
     depends_on:
       mlflow:
         condition: service_healthy
@@ -88,7 +87,7 @@ services:
       - ./config/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus_data:/prometheus
     ports:
-      - "9090:9090"
+      - "${PROMETHEUS_PORT:-9090}:9090"
     depends_on:
       - api
     networks:
@@ -110,7 +109,7 @@ services:
       - ./config/grafana/provisioning:/etc/grafana/provisioning:ro
       - ./config/grafana/dashboards:/var/lib/grafana/dashboards:ro
     ports:
-      - "3000:3000"
+      - "${GRAFANA_PORT:-3000}:3000"
     depends_on:
       - prometheus
     networks:
@@ -126,7 +125,7 @@ services:
       dockerfile: Dockerfile
     container_name: ${USER}_monitoring-evidently
     ports:
-      - "8001:8001"
+      - "${EVIDENTLY_PORT:-8001}:8001"
     volumes:
       - evidently_data:/app/data
       - evidently_reports:/app/reports
@@ -134,8 +133,11 @@ services:
     environment:
       - EVIDENTLY_REFERENCE_WINDOW=7d
       - EVIDENTLY_ANALYSIS_INTERVAL=1h
-      - EVIDENTLY_DRIFT_THRESHOLD=0.1
+      - EVIDENTLY_DRIFT_THRESHOLD=0.3
       - EVIDENTLY_MIN_SAMPLES=100
+      - AIRFLOW_URL=http://airflow-webserver:8080
+      - AIRFLOW_USER=admin
+      - AIRFLOW_PASS=admin
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
       interval: 10s
@@ -149,7 +151,9 @@ services:
   # AIRFLOW - INIT (DB + Admin User)
   # ==========================================
   airflow-init:
-    image: ddm501-t03-airflow:2.8.4
+    image: ddm501-airflow:2.8.4
+    build:
+      context: ./airflow
     container_name: ${USER}_monitoring-airflow-init
     environment:
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
@@ -184,7 +188,9 @@ services:
   # AIRFLOW WEBSERVER
   # ==========================================
   airflow-webserver:
-    image: ddm501-t03-airflow:2.8.4
+    image: ddm501-airflow:2.8.4
+    build:
+      context: ./airflow
     container_name: ${USER}_monitoring-airflow-webserver
     environment:
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
@@ -196,10 +202,9 @@ services:
     volumes:
       - ./airflow/dags:/opt/airflow/dags
       - ./src:/opt/airflow/src
-      - C:/mlflow:/mlflow
     command: airflow webserver --port 8080
     ports:
-      - "8080:8080"
+      - "${AIRFLOW_PORT:-8080}:8080"
     depends_on:
       postgres:
         condition: service_healthy
@@ -219,7 +224,9 @@ services:
   # AIRFLOW SCHEDULER
   # ==========================================
   airflow-scheduler:
-    image: ddm501-t03-airflow:2.8.4
+    image: ddm501-airflow:2.8.4
+    build:
+      context: ./airflow
     container_name: ${USER}_monitoring-airflow-scheduler
     environment:
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
@@ -231,7 +238,6 @@ services:
     volumes:
       - ./airflow/dags:/opt/airflow/dags
       - ./src:/opt/airflow/src
-      - C:/mlflow:/mlflow
     command: airflow scheduler
     depends_on:
       postgres:

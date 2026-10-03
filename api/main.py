@@ -1,11 +1,13 @@
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import BackgroundTasks, FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from typing import List, Dict, Any, Optional
 import mlflow
 import mlflow.pyfunc
 import numpy as np
+import requests
 import time
+import uuid
 import logging
 from datetime import datetime
 import os
@@ -21,6 +23,14 @@ from starlette.responses import Response
 MLFLOW_TRACKING_URI = os.getenv('MLFLOW_TRACKING_URI', 'http://localhost:5000')
 MODEL_NAME = os.getenv('MODEL_NAME', 'wine_quality_model')
 MODEL_STAGE = os.getenv('MODEL_STAGE', 'Production')  # Production, Staging, None
+EVIDENTLY_URL = os.getenv('EVIDENTLY_URL', '')  # empty = do not capture inferences
+
+# Wine dataset features, in the order the model was trained on
+FEATURE_NAMES = [
+    'alcohol', 'malic_acid', 'ash', 'alcalinity_of_ash', 'magnesium',
+    'total_phenols', 'flavanoids', 'nonflavanoid_phenols', 'proanthocyanins',
+    'color_intensity', 'hue', 'od280/od315_of_diluted_wines', 'proline'
+]
 
 # Setup logging
 logging.basicConfig(
@@ -116,6 +126,7 @@ class PredictionRequest(BaseModel):
 
 class PredictionResponse(BaseModel):
     """Response model for prediction"""
+    prediction_id: str
     prediction: float
     model_name: str
     model_version: str
@@ -298,6 +309,25 @@ async def startup_event():
         logger.info("API server ready!")
 
 # ============================================
+# INFERENCE CAPTURE
+# ============================================
+
+def capture_to_evidently(features: List[float], prediction: float, model_version: str):
+    """Send the inference to Evidently so drift is computed on real traffic"""
+    try:
+        requests.post(
+            f"{EVIDENTLY_URL}/capture",
+            json={
+                "features": dict(zip(FEATURE_NAMES, features)),
+                "prediction": prediction,
+                "model_version": model_version
+            },
+            timeout=2
+        ).raise_for_status()
+    except Exception as e:
+        logger.warning(f"Failed to capture inference to Evidently: {e}")
+
+# ============================================
 # ENDPOINTS
 # ============================================
 
@@ -329,7 +359,7 @@ async def health_check():
     )
 
 @app.post("/predict", response_model=PredictionResponse)
-async def predict(request: PredictionRequest):
+async def predict(request: PredictionRequest, background_tasks: BackgroundTasks):
     """Prediction endpoint"""
     try:
         # Check if model is loaded
@@ -339,6 +369,12 @@ async def predict(request: PredictionRequest):
                 error_type='model_not_loaded'
             ).inc()
             raise HTTPException(status_code=503, detail="Model not loaded")
+        
+        if len(request.features) != len(FEATURE_NAMES):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Expected {len(FEATURE_NAMES)} features, got {len(request.features)}"
+            )
         
         # Track feature distributions (for drift detection)
         if request.feature_names and len(request.feature_names) == len(request.features):
@@ -350,13 +386,23 @@ async def predict(request: PredictionRequest):
         prediction, pred_latency = model_manager.predict(request.features)
         total_latency = time.time() - start_time
         
+        if EVIDENTLY_URL:
+            background_tasks.add_task(
+                capture_to_evidently,
+                request.features, prediction, model_manager.model_version
+            )
+        
         return PredictionResponse(
+            prediction_id=str(uuid.uuid4()),
             prediction=prediction,
             model_name=model_manager.model_name,
             model_version=model_manager.model_version,
             timestamp=datetime.now().isoformat(),
             latency_ms=total_latency * 1000
         )
+    
+    except HTTPException:
+        raise
     
     except ValueError as e:
         PREDICTION_ERRORS.labels(

@@ -31,7 +31,7 @@ if sys.stdout.encoding != 'utf-8':
 # CONFIGURATION
 # ============================================
 
-MLFLOW_TRACKING_URI = 'http://localhost:5000'
+MLFLOW_TRACKING_URI = os.getenv('MLFLOW_TRACKING_URI', 'http://localhost:5000')
 MODEL_NAME = "wine_quality_model"
 EXPERIMENT_NAME = "wine_quality_experiment"
 
