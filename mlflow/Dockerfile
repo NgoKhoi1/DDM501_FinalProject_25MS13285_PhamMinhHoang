@@ -26,7 +26,7 @@ ENV PYTHONUNBUFFERED=1
 # Default command - will be overridden by docker-compose
 CMD ["mlflow", "server", \
      "--backend-store-uri", "postgresql://mlflow:mlflow@postgres:5432/mlflow", \
-     "--default-artifact-root", "file:///mlflow/artifacts", \
+     "--artifacts-destination", "/mlflow/artifacts", \
      "--serve-artifacts", \
      "--host", "0.0.0.0", \
      "--port", "5000"]

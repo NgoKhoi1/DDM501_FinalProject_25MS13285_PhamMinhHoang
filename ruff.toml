@@ -1,0 +1,9 @@
+line-length = 120
+
+[lint]
+# Same rule families as flake8, pinned so results do not change with the ruff version
+select = ["E", "F", "W"]
+
+[lint.per-file-ignores]
+# tests put src/ on sys.path before importing from it
+"tests/*" = ["E402"]

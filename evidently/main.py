@@ -16,6 +16,7 @@ from pydantic import BaseModel, Field
 from typing import List, Dict, Any, Optional
 import pandas as pd
 import numpy as np
+import requests
 import logging
 import os
 import json
@@ -52,6 +53,15 @@ REFERENCE_DIR = Path("/app/reference")
 REPORTS_DIR.mkdir(exist_ok=True)
 DATA_DIR.mkdir(exist_ok=True)
 REFERENCE_DIR.mkdir(exist_ok=True)
+
+# Dataset drift = share of drifted features >= this threshold
+DRIFT_THRESHOLD = float(os.getenv('EVIDENTLY_DRIFT_THRESHOLD', '0.3'))
+
+# Airflow retraining hook
+AIRFLOW_URL = os.getenv('AIRFLOW_URL', 'http://airflow-webserver:8080')
+AIRFLOW_USER = os.getenv('AIRFLOW_USER', 'admin')
+AIRFLOW_PASS = os.getenv('AIRFLOW_PASS', 'admin')
+AIRFLOW_DAG_ID = os.getenv('AIRFLOW_DAG_ID', 'ml_training_pipeline')
 
 # ============================================
 # PROMETHEUS METRICS
@@ -117,7 +127,10 @@ class BatchPredictionData(BaseModel):
 class DriftAnalysisRequest(BaseModel):
     """Request to trigger drift analysis"""
     window_size: Optional[int] = Field(100, description="Number of recent samples to analyze")
-    threshold: Optional[float] = Field(0.1, description="Drift detection threshold")
+    threshold: Optional[float] = Field(
+        None,
+        description="Share of drifted features that counts as dataset drift (default: EVIDENTLY_DRIFT_THRESHOLD)"
+    )
 
 class ReferenceDataRequest(BaseModel):
     """Request to update reference data"""
@@ -333,7 +346,7 @@ async def analyze_drift(
         result = perform_drift_analysis(
             reference_data=data_store.reference_data,
             current_data=production_df,
-            threshold=request.threshold
+            threshold=request.threshold if request.threshold is not None else DRIFT_THRESHOLD
         )
         
         duration = time.time() - start_time
@@ -344,6 +357,14 @@ async def analyze_drift(
         data_store.last_analysis_time = datetime.now()
         
         logger.info(f"✅ Analysis completed in {duration:.2f}s")
+        
+        # Drift detected -> retrain automatically
+        result["retrain_triggered"] = False
+        if result["drift_detected"]:
+            logger.warning("🚨 Data drift detected! Triggering retraining pipeline...")
+            dag_run_id = trigger_airflow_dag(result["drifted_count"] / result["total_features"])
+            result["retrain_triggered"] = dag_run_id is not None
+            result["dag_run_id"] = dag_run_id
         
         return result
     
@@ -443,13 +464,35 @@ async def metrics():
     return Response(content=generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 # ============================================
+# AIRFLOW RETRAIN TRIGGER
+# ============================================
+
+def trigger_airflow_dag(drift_share: float) -> Optional[str]:
+    """Trigger the retraining DAG via Airflow REST API. Returns the dag_run_id, or None on failure"""
+    url = f"{AIRFLOW_URL}/api/v1/dags/{AIRFLOW_DAG_ID}/dagRuns"
+    try:
+        response = requests.post(
+            url,
+            auth=(AIRFLOW_USER, AIRFLOW_PASS),
+            json={"conf": {"triggered_by": "evidently_drift_monitor", "drift_share": drift_share}},
+            timeout=10
+        )
+        response.raise_for_status()
+        dag_run_id = response.json().get("dag_run_id")
+        logger.info(f"✅ Triggered Airflow DAG {AIRFLOW_DAG_ID}: {dag_run_id}")
+        return dag_run_id
+    except Exception as e:
+        logger.error(f"❌ Failed to trigger Airflow DAG: {e}")
+        return None
+
+# ============================================
 # DRIFT ANALYSIS LOGIC
 # ============================================
 
 def perform_drift_analysis(
     reference_data: pd.DataFrame,
     current_data: pd.DataFrame,
-    threshold: float = 0.1
+    threshold: float = DRIFT_THRESHOLD
 ) -> Dict[str, Any]:
     """Perform drift analysis using Evidently"""
     
@@ -471,7 +514,9 @@ def perform_drift_analysis(
         
         # Create report
         report = Report(metrics=[
-            DataDriftPreset(),
+            # K-S test for every numeric feature: the default switches to Wasserstein distance
+            # above 1000 reference rows, which flags drift on small windows of normal traffic
+            DataDriftPreset(drift_share=threshold, num_stattest="ks"),
             DataQualityPreset()
         ])
         
@@ -483,16 +528,18 @@ def perform_drift_analysis(
         
         # Parse results
         drift_detected = False
+        drift_score = 0
         drifted_features = []
         drift_scores = {}
         
         # Extract drift information from metrics
         for metric in report_dict.get('metrics', []):
+            result = metric.get('result', {})
             if metric.get('metric') == 'DatasetDriftMetric':
-                result = metric.get('result', {})
                 drift_detected = result.get('dataset_drift', False)
                 drift_score = result.get('share_of_drifted_columns', 0)
-                
+            
+            elif metric.get('metric') == 'DataDriftTable':
                 # Get per-feature drift
                 drift_by_columns = result.get('drift_by_columns', {})
                 for feature, drift_info in drift_by_columns.items():

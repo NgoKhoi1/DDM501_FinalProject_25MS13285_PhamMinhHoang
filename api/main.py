@@ -1,11 +1,14 @@
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import BackgroundTasks, FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from typing import List, Dict, Any, Optional
 import mlflow
 import mlflow.pyfunc
 import numpy as np
+import pandas as pd
+import requests
 import time
+import uuid
 import logging
 from datetime import datetime
 import os
@@ -21,6 +24,13 @@ from starlette.responses import Response
 MLFLOW_TRACKING_URI = os.getenv('MLFLOW_TRACKING_URI', 'http://localhost:5000')
 MODEL_NAME = os.getenv('MODEL_NAME', 'wine_quality_model')
 MODEL_STAGE = os.getenv('MODEL_STAGE', 'Production')  # Production, Staging, None
+EVIDENTLY_URL = os.getenv('EVIDENTLY_URL', '')  # empty = do not capture inferences
+
+# Wine Quality features, in the order the model was trained on
+FEATURE_NAMES = [
+    'fixed_acidity', 'volatile_acidity', 'citric_acid', 'residual_sugar', 'chlorides',
+    'free_sulfur_dioxide', 'total_sulfur_dioxide', 'density', 'pH', 'sulphates', 'alcohol'
+]
 
 # Setup logging
 logging.basicConfig(
@@ -79,7 +89,7 @@ PREDICTION_VALUE = Histogram(
     'model_prediction_value',
     'Distribution of prediction values',
     ['model_name'],
-    buckets=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]  # For wine quality 0-10
+    buckets=[0, 1]  # 0 = not good, 1 = good (quality >= 6)
 )
 
 # Error metrics
@@ -103,32 +113,57 @@ FEATURE_VALUE = Histogram(
 
 class PredictionRequest(BaseModel):
     """Request model for prediction"""
-    features: List[float] = Field(..., description="List of feature values")
+    features: List[float] = Field(
+        ...,
+        description="The 11 physicochemical measurements of the wine, in this order: " + ", ".join(FEATURE_NAMES)
+    )
     feature_names: Optional[List[str]] = Field(None, description="Feature names (optional)")
-    
-    class Config:
-        schema_extra = {
+
+    model_config = {
+        "json_schema_extra": {
             "example": {
-                "features": [7.4, 0.7, 0.0, 1.9, 0.076, 11.0, 34.0, 0.9978, 3.51, 0.56, 9.4],
-                "feature_names": ["fixed_acidity", "volatile_acidity", "citric_acid", ...]
+                "features": [7.4, 0.7, 0.0, 1.9, 0.076, 11.0, 34.0, 0.9978, 3.51, 0.56, 9.4]
             }
         }
+    }
 
 class PredictionResponse(BaseModel):
     """Response model for prediction"""
-    prediction: float
+    prediction_id: str = Field(..., description="Unique id of this prediction")
+    prediction: float = Field(..., description="1 = good wine (quality >= 6), 0 = not good")
     model_name: str
-    model_version: str
+    model_version: str = Field(..., description="Version in the MLflow Model Registry")
     timestamp: str
     latency_ms: float
 
+    # model_name / model_version are fields, not pydantic's own model_* namespace
+    model_config = {
+        "protected_namespaces": (),
+        "json_schema_extra": {
+            "example": {
+                "prediction_id": "12ab2110-e845-443d-b8ae-e18ff8ee4a5c",
+                "prediction": 0.0,
+                "model_name": "wine_quality_model",
+                "model_version": "1",
+                "timestamp": "2026-10-03T16:30:38.938645",
+                "latency_ms": 4.2
+            }
+        }
+    }
+
 class HealthResponse(BaseModel):
     """Health check response"""
-    status: str
+    status: str = Field(..., description="healthy when a model is loaded, otherwise unhealthy")
     model_loaded: bool
     model_name: str
     model_version: str
     uptime_seconds: float
+
+    model_config = {"protected_namespaces": ()}
+
+class ErrorResponse(BaseModel):
+    """Error body returned with 4xx / 5xx status codes"""
+    detail: str
 
 # ============================================
 # MODEL MANAGER
@@ -204,12 +239,12 @@ class ModelManager:
         if self.model is None:
             raise ValueError("Model not loaded")
         
-        # Convert to numpy array
-        features_array = np.array(features).reshape(1, -1)
+        # The model was trained on named columns
+        features_df = pd.DataFrame([features], columns=FEATURE_NAMES)
         
         # Predict
         start_time = time.time()
-        prediction = self.model.predict(features_array)
+        prediction = self.model.predict(features_df)
         latency = time.time() - start_time
         
         # Update metrics
@@ -235,9 +270,18 @@ class ModelManager:
 # ============================================
 
 app = FastAPI(
-    title="ML Model API",
-    description="Production ML model serving with monitoring",
-    version="1.0.0"
+    title="Wine Quality API",
+    description=(
+        "Serves the Production version of `wine_quality_model` from the MLflow Model Registry.\n\n"
+        "The model predicts whether a wine is good (quality >= 6) from 11 physicochemical measurements. "
+        "Every prediction is exported to Prometheus and forwarded to Evidently for drift detection."
+    ),
+    version="1.0.0",
+    openapi_tags=[
+        {"name": "prediction", "description": "Model inference"},
+        {"name": "model", "description": "Model registry operations"},
+        {"name": "operations", "description": "Health check and metrics"},
+    ]
 )
 
 # Initialize model manager
@@ -298,10 +342,29 @@ async def startup_event():
         logger.info("API server ready!")
 
 # ============================================
+# INFERENCE CAPTURE
+# ============================================
+
+def capture_to_evidently(features: List[float], prediction: float, model_version: str):
+    """Send the inference to Evidently so drift is computed on real traffic"""
+    try:
+        requests.post(
+            f"{EVIDENTLY_URL}/capture",
+            json={
+                "features": dict(zip(FEATURE_NAMES, features)),
+                "prediction": prediction,
+                "model_version": model_version
+            },
+            timeout=2
+        ).raise_for_status()
+    except Exception as e:
+        logger.warning(f"Failed to capture inference to Evidently: {e}")
+
+# ============================================
 # ENDPOINTS
 # ============================================
 
-@app.get("/")
+@app.get("/", tags=["operations"])
 async def root():
     """Root endpoint"""
     return {
@@ -315,7 +378,7 @@ async def root():
         }
     }
 
-@app.get("/health", response_model=HealthResponse)
+@app.get("/health", response_model=HealthResponse, tags=["operations"])
 async def health_check():
     """Health check endpoint"""
     uptime = time.time() - app_start_time
@@ -328,8 +391,17 @@ async def health_check():
         uptime_seconds=uptime
     )
 
-@app.post("/predict", response_model=PredictionResponse)
-async def predict(request: PredictionRequest):
+@app.post(
+    "/predict",
+    response_model=PredictionResponse,
+    tags=["prediction"],
+    responses={
+        400: {"model": ErrorResponse, "description": "Wrong number of features"},
+        500: {"model": ErrorResponse, "description": "Prediction failed"},
+        503: {"model": ErrorResponse, "description": "Model not loaded"},
+    }
+)
+async def predict(request: PredictionRequest, background_tasks: BackgroundTasks):
     """Prediction endpoint"""
     try:
         # Check if model is loaded
@@ -339,6 +411,12 @@ async def predict(request: PredictionRequest):
                 error_type='model_not_loaded'
             ).inc()
             raise HTTPException(status_code=503, detail="Model not loaded")
+        
+        if len(request.features) != len(FEATURE_NAMES):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Expected {len(FEATURE_NAMES)} features, got {len(request.features)}"
+            )
         
         # Track feature distributions (for drift detection)
         if request.feature_names and len(request.feature_names) == len(request.features):
@@ -350,13 +428,23 @@ async def predict(request: PredictionRequest):
         prediction, pred_latency = model_manager.predict(request.features)
         total_latency = time.time() - start_time
         
+        if EVIDENTLY_URL:
+            background_tasks.add_task(
+                capture_to_evidently,
+                request.features, prediction, model_manager.model_version
+            )
+        
         return PredictionResponse(
+            prediction_id=str(uuid.uuid4()),
             prediction=prediction,
             model_name=model_manager.model_name,
             model_version=model_manager.model_version,
             timestamp=datetime.now().isoformat(),
             latency_ms=total_latency * 1000
         )
+    
+    except HTTPException:
+        raise
     
     except ValueError as e:
         PREDICTION_ERRORS.labels(
@@ -373,7 +461,7 @@ async def predict(request: PredictionRequest):
         logger.error(f"Prediction error: {e}")
         raise HTTPException(status_code=500, detail="Prediction failed")
 
-@app.get("/model/info")
+@app.get("/model/info", tags=["model"], responses={503: {"model": ErrorResponse}})
 async def model_info():
     """Get model information"""
     if model_manager.model is None:
@@ -387,7 +475,7 @@ async def model_info():
         "tracking_uri": MLFLOW_TRACKING_URI
     }
 
-@app.post("/model/reload")
+@app.post("/model/reload", tags=["model"], responses={500: {"model": ErrorResponse}})
 async def reload_model():
     """Reload model from registry"""
     logger.info(" Reloading model...")
@@ -403,7 +491,7 @@ async def reload_model():
     else:
         raise HTTPException(status_code=500, detail="Model reload failed")
 
-@app.get("/metrics")
+@app.get("/metrics", tags=["operations"])
 async def metrics():
     """Prometheus metrics endpoint"""
     return Response(content=generate_latest(), media_type=CONTENT_TYPE_LATEST)

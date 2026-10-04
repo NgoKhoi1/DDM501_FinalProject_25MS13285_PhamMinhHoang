@@ -1,0 +1,89 @@
+# ============================================
+# MODEL API - PROMETHEUS ALERT RULES
+# ============================================
+# Built on the metrics exported by api/main.py.
+
+groups:
+  - name: model_api_alerts
+    interval: 30s
+    rules:
+      # Prometheus cannot scrape the API at all
+      - alert: ModelAPIDown
+        expr: up{job="model-api"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          component: api
+        annotations:
+          summary: "Model API is down"
+          description: "Prometheus has not been able to scrape the model API for 1 minute."
+
+      # API answers but has no model: every /predict returns 503
+      - alert: ModelNotLoaded
+        expr: increase(model_prediction_errors_total{error_type="model_not_loaded"}[5m]) > 0
+        for: 1m
+        labels:
+          severity: critical
+          component: model
+        annotations:
+          summary: "API is serving without a model"
+          description: "Predictions were rejected because no model is loaded. Train a model or call POST /model/reload."
+
+      # More than 5% of requests fail with a server error
+      - alert: HighErrorRate
+        expr: |
+          sum(rate(api_requests_total{status=~"5.."}[5m]))
+            / sum(rate(api_requests_total[5m])) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+          component: api
+        annotations:
+          summary: "High API error rate"
+          description: "{{ $value | humanizePercentage }} of requests returned 5xx over the last 5 minutes."
+
+      # Clients send malformed input (wrong number of features, invalid body)
+      - alert: HighClientErrorRate
+        expr: |
+          sum(rate(api_requests_total{endpoint="/predict",status=~"4.."}[5m]))
+            / sum(rate(api_requests_total{endpoint="/predict"}[5m])) > 0.2
+        for: 10m
+        labels:
+          severity: warning
+          component: api
+        annotations:
+          summary: "Many invalid prediction requests"
+          description: "{{ $value | humanizePercentage }} of /predict requests were rejected (4xx). A client may be sending the wrong schema."
+
+      # p95 latency of /predict above 500 ms
+      - alert: HighPredictLatency
+        expr: |
+          histogram_quantile(0.95,
+            sum by (le) (rate(api_request_latency_seconds_bucket{endpoint="/predict"}[5m]))) > 0.5
+        for: 5m
+        labels:
+          severity: warning
+          component: api
+        annotations:
+          summary: "Slow predictions"
+          description: "p95 latency of /predict is {{ $value | humanizeDuration }} (threshold 500ms)."
+
+  - name: model_behaviour_alerts
+    interval: 1m
+    rules:
+      # Share of "good wine" predictions far from what the model produced on its training data (~0.5-0.7)
+      - alert: PredictionDistributionShift
+        expr: |
+          (
+            sum(rate(model_prediction_value_sum[30m])) / sum(rate(model_prediction_value_count[30m])) > 0.9
+          or
+            sum(rate(model_prediction_value_sum[30m])) / sum(rate(model_prediction_value_count[30m])) < 0.2
+          )
+          and sum(increase(model_prediction_value_count[30m])) > 50
+        for: 10m
+        labels:
+          severity: warning
+          component: model
+        annotations:
+          summary: "Unusual share of positive predictions"
+          description: "{{ $value | humanizePercentage }} of predictions are 'good wine' over the last 30 minutes."

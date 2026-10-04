@@ -14,6 +14,8 @@
 
 % ---- Lề trang -----------------------------------------------
 \usepackage[top=2.5cm, bottom=2.5cm, left=3cm, right=2cm]{geometry}
+% Cho phep gian dong de cac ten dai trong \texttt khong tran le
+\emergencystretch=3em
 
 % ---- Hình ảnh, màu sắc, bảng biểu --------------------------
 \usepackage{graphicx}
@@ -162,11 +164,11 @@ Chúng tôi xin cam đoan rằng báo cáo cuối kỳ này là công trình ngh
 \chapter*{Tóm tắt}
 \addcontentsline{toc}{chapter}{Tóm tắt}
 
-Báo cáo này trình bày quá trình thiết kế và triển khai một hệ thống MLOps hoàn chỉnh (end-to-end) cho bài toán phân loại chất lượng rượu vang (\textit{Wine Quality Classification}) sử dụng bộ dữ liệu \texttt{sklearn.datasets.load\_wine()}. Hệ thống bao gồm toàn bộ vòng đời của một mô hình học máy: từ thu thập dữ liệu, tiền xử lý, huấn luyện, phục vụ (serving), giám sát (monitoring), phát hiện data drift đến tự động tái huấn luyện.
+Báo cáo này trình bày quá trình thiết kế và triển khai một hệ thống MLOps hoàn chỉnh (end-to-end) cho bài toán phân loại chất lượng rượu vang: dự đoán một mẫu rượu có \textit{đạt chất lượng} (điểm cảm quan $\geq 6$) hay không từ 11 chỉ số hóa lý, sử dụng bộ dữ liệu \textit{UCI Wine Quality} (6.497 mẫu rượu đỏ và rượu trắng). Hệ thống bao gồm toàn bộ vòng đời của một mô hình học máy: từ thu thập dữ liệu, tiền xử lý, huấn luyện, phục vụ (serving), giám sát (monitoring), phát hiện data drift đến tự động tái huấn luyện.
 
 Kiến trúc hệ thống được xây dựng với 8 dịch vụ Docker: \textbf{FastAPI} cho REST API serving, \textbf{MLflow} cho theo dõi thí nghiệm và quản lý mô hình, \textbf{Apache Airflow} cho orchestration pipeline tự động, \textbf{Evidently AI} cho phát hiện data drift, \textbf{Prometheus} và \textbf{Grafana} cho thu thập và trực quan hóa metrics, cùng \textbf{PostgreSQL} làm cơ sở dữ liệu nền.
 
-Kết quả thực nghiệm cho thấy hệ thống đạt độ chính xác 100\% trên tập kiểm tra tĩnh, vượt qua 74 test cases với độ bao phủ code 90\% ($\geq$80\% theo yêu cầu), và Airflow DAG gồm 5 tasks hoàn thành thành công khi nhận tín hiệu drift.
+Kịch bản thực nghiệm: mô hình ban đầu được huấn luyện trên rượu đỏ, sau đó dữ liệu production chuyển sang rượu trắng. Evidently phát hiện drift trên 10/11 đặc trưng và tự kích hoạt Airflow DAG; mô hình huấn luyện lại trên cả hai loại rượu đạt độ chính xác 76,1\% trên tập kiểm tra, so với 70,7\% của mô hình cũ trên cùng tập đó, nên được tự động đưa lên Production. Hệ thống vượt qua 96 test cases với độ bao phủ code 96\% ($\geq$80\% theo yêu cầu). Báo cáo cũng phân tích tính công bằng của mô hình giữa hai loại rượu và khả năng giải thích mô hình.
 
 \vspace{0.5cm}
 \noindent\textbf{Từ khóa:} MLOps, data drift, model monitoring, Docker, FastAPI, MLflow, Apache Airflow, Evidently AI, Prometheus, Grafana, Wine Classification.
@@ -201,16 +203,18 @@ MLOps kết hợp các thực hành tốt nhất từ DevOps, DataOps và kỹ t
   \item \textbf{Phát hiện data drift tự động} bằng Evidently AI và kích hoạt tái huấn luyện thông qua Airflow.
   \item \textbf{Đảm bảo chất lượng code} với bộ test cases đạt coverage $\geq$80\%.
   \item \textbf{Tích hợp CI/CD} với GitHub Actions để tự động hóa kiểm thử và triển khai.
+  \item \textbf{Responsible AI:} phân tích tính công bằng (fairness) và khả năng giải thích (explainability) của mô hình.
 \end{enumerate}
 
 \section{Phạm vi thực hiện}
 
 Báo cáo tập trung vào các nội dung sau:
 \begin{itemize}
-  \item \textbf{Bài toán:} Phân loại chất lượng rượu vang (3 lớp: class 0, 1, 2) dựa trên 13 thuộc tính hóa học.
-  \item \textbf{Dataset:} \texttt{sklearn.datasets.load\_wine()} -- 178 mẫu, 13 features.
+  \item \textbf{Bối cảnh giả định:} Một nhà sản xuất rượu cần sàng lọc nhanh các mẻ rượu trước khi đưa cho hội đồng nếm thử, vốn chậm và tốn kém. Mô hình đưa ra tín hiệu sàng lọc sơ bộ từ các chỉ số phòng thí nghiệm; quyết định cuối cùng vẫn thuộc về hội đồng.
+  \item \textbf{Bài toán:} Phân loại nhị phân: rượu đạt chất lượng (điểm $\geq 6$) hay không đạt, dựa trên 11 thuộc tính hóa lý.
+  \item \textbf{Dataset:} UCI Wine Quality (Cortez và cộng sự, 2009) -- 1.599 mẫu rượu đỏ và 4.898 mẫu rượu trắng, 11 features.
   \item \textbf{Mô hình:} Random Forest Classifier (sklearn).
-  \item \textbf{Môi trường:} Docker Desktop trên Windows 11, Python 3.11.
+  \item \textbf{Môi trường:} Docker Desktop trên Windows 11; Python 3.10 trong các container.
   \item \textbf{Thời gian thực hiện:} Tháng 9--10/2026.
 \end{itemize}
 
@@ -221,7 +225,7 @@ Báo cáo được tổ chức thành 7 chương:
   \item \textbf{Chương 1:} Giới thiệu tổng quan.
   \item \textbf{Chương 2:} Cơ sở lý thuyết về MLOps.
   \item \textbf{Chương 3:} Kiến trúc và thiết kế hệ thống.
-  \item \textbf{Chương 4:} Mô tả dữ liệu và mô hình ML.
+  \item \textbf{Chương 4:} Mô tả dữ liệu, mô hình ML và Responsible AI.
   \item \textbf{Chương 5:} Quy trình triển khai và thực nghiệm.
   \item \textbf{Chương 6:} Kết quả đạt được.
   \item \textbf{Chương 7:} Kết luận và hướng phát triển.
@@ -271,7 +275,7 @@ Có ba loại drift phổ biến:
   \item \textbf{Concept Drift:} Mối quan hệ $P(Y|X)$ thay đổi theo thời gian.
 \end{itemize}
 
-Trong đề tài này, chúng tôi giả lập \textbf{Covariate Shift} bằng cách thêm nhiễu Gaussian vào dữ liệu input ($\mu=0$, $\sigma=2.0$) để kích hoạt quy trình phát hiện drift.
+Trong đề tài này, chúng tôi tạo ra \textbf{Covariate Shift} thật thay vì thêm nhiễu nhân tạo: mô hình được huấn luyện trên rượu đỏ, sau đó dữ liệu production chuyển sang rượu trắng. Hai loại rượu có đặc tính hóa học khác nhau rõ rệt (rượu trắng có lượng đường dư và sulfur dioxide cao hơn nhiều), nên phân phối đầu vào $P(X)$ thay đổi trên hầu hết các đặc trưng.
 
 \section{Các công cụ sử dụng}
 
@@ -300,7 +304,7 @@ Docker cho phép đóng gói ứng dụng cùng dependencies vào container, đ�
 
 \section{Tổng quan kiến trúc}
 
-Hệ thống được thiết kế theo kiến trúc microservices, với 8 dịch vụ độc lập giao tiếp qua Docker network \texttt{monitoring}. Tất cả dịch vụ được định nghĩa trong file \texttt{docker-compose.yml} và chia sẻ volume chung \texttt{/mlflow} để truy cập artifacts.
+Hệ thống được thiết kế theo kiến trúc microservices, với 8 dịch vụ độc lập giao tiếp qua Docker network \texttt{monitoring}. Tất cả dịch vụ được định nghĩa trong file \texttt{docker-compose.yml}. Artifacts của mô hình được lưu trên một Docker volume của MLflow server và được phục vụ qua HTTP, nên các dịch vụ khác không cần mount chung thư mục nào.
 
 \begin{figure}[H]
   \centering
@@ -330,115 +334,123 @@ Hệ thống được thiết kế theo kiến trúc microservices, với 8 dị
 Luồng hoạt động chính của hệ thống được mô tả như sau:
 
 \begin{enumerate}
-  \item \textbf{Training phase:} Script \texttt{training.py} load dữ liệu wine, huấn luyện RandomForestClassifier, log metrics lên MLflow và đăng ký mô hình vào Production.
-  \item \textbf{Serving phase:} FastAPI API load mô hình từ MLflow Registry và cung cấp endpoint \texttt{POST /predict} cho client.
-  \item \textbf{Monitoring phase:} Mỗi request được ghi lại metrics (latency, error rate, prediction distribution). Prometheus scrape metrics theo chu kỳ.
-  \item \textbf{Drift Detection:} Script gửi 100 request bình thường, sau đó 250 request với dữ liệu bị nhiễu. Evidently AI phân tích và phát hiện drift khi tỷ lệ drift $\geq 30\%$.
-  \item \textbf{Auto-Retraining:} Khi drift được phát hiện, hệ thống kích hoạt Airflow DAG \texttt{ml\_pipeline} thông qua REST API.
-  \item \textbf{New Model:} Airflow DAG chạy 5 tasks: ingest $\rightarrow$ clean $\rightarrow$ feature engineer $\rightarrow$ train $\rightarrow$ evaluate \& register phiên bản mới vào MLflow.
+  \item \textbf{Training phase:} Script \texttt{training.py} kích hoạt Airflow DAG \texttt{ml\_training\_pipeline} với dữ liệu rượu đỏ. DAG làm sạch dữ liệu, tinh chỉnh và huấn luyện mô hình Random Forest, log lên MLflow và đăng ký mô hình vào Production.
+  \item \textbf{Serving phase:} FastAPI load mô hình Production từ MLflow Registry và cung cấp endpoint \texttt{POST /predict} cho client.
+  \item \textbf{Monitoring phase:} Mỗi request được ghi lại metrics (latency, error rate, prediction distribution), Prometheus scrape mỗi 5 giây. Đồng thời API gửi nền mỗi inference (features và dự đoán) sang Evidently.
+  \item \textbf{Drift Detection:} Evidently so sánh các inference gần nhất với dữ liệu huấn luyện (reference) bằng kiểm định Kolmogorov--Smirnov trên từng đặc trưng. Dataset bị coi là drift khi tỷ lệ đặc trưng drift $\geq 30\%$.
+  \item \textbf{Auto-Retraining:} Khi phát hiện drift, chính dịch vụ Evidently gọi Airflow REST API để kích hoạt DAG, lần này trên toàn bộ dữ liệu (rượu đỏ và rượu trắng).
+  \item \textbf{New Model:} DAG so sánh mô hình mới với mô hình Production trên cùng một tập kiểm tra. Nếu mô hình mới không kém hơn, nó được đưa lên Production, API tự nạp lại mô hình và Evidently nhận dữ liệu huấn luyện mới làm reference.
 \end{enumerate}
 
 \section{Cấu trúc thư mục dự án}
 
-\begin{lstlisting}[language=bash, caption=Cấu trúc thư mục dự án ml-monitoring]
-ml-monitoring/
+\begin{lstlisting}[language=bash, caption=Cấu trúc thư mục dự án]
+DDM501_FinalProject/
 |-- airflow/
+|   |-- Dockerfile               # Airflow image + ML dependencies
 |   `-- dags/
-|       `-- ml_pipeline_dag.py   # Airflow DAG 5 tasks
+|       `-- ml_pipeline_dag.py   # Airflow DAG 6 tasks
 |-- api/
-|   |-- Dockerfile
+|   |-- Dockerfile               # Multi-stage, non-root
 |   |-- main.py                  # FastAPI application
 |   `-- requirements.txt
+|-- config/
+|   |-- prometheus.yml           # Scrape config
+|   |-- prometheus/              # Alert rules (24 rules)
+|   `-- grafana/                 # Dashboards + provisioning
+|-- data/                        # winequality-red.csv, winequality-white.csv
 |-- evidently/
 |   |-- Dockerfile
-|   `-- main.py                  # Evidently drift service
+|   `-- main.py                  # Drift service + retrain trigger
 |-- mlflow/
 |   `-- Dockerfile               # MLflow server
-|-- monitoring/
-|   |-- grafana/                 # Grafana dashboards
-|   `-- prometheus/
-|       `-- prometheus.yml       # Scrape config
 |-- scripts/
-|   |-- training.py              # Initial training script
+|   |-- training.py              # Trigger initial training
 |   `-- simulate_drift_and_retrain.py
 |-- src/                         # Core ML modules
 |   |-- data_pipeline.py
 |   |-- feature_engineering.py
 |   |-- train.py
 |   |-- evaluate.py
+|   |-- fairness.py
 |   `-- explainability.py
-|-- tests/                       # Unit & integration tests
+|-- tests/                       # Unit, integration, data, model tests
 |-- .github/workflows/
-|   `-- ci-cd.yml               # GitHub Actions CI/CD
+|   `-- ci-cd.yml                # GitHub Actions CI/CD
+|-- ARCHITECTURE.md, RESPONSIBLE_AI.md, CONTRIBUTING.md
 `-- docker-compose.yml
 \end{lstlisting}
 
 \section{Thiết kế Airflow DAG}
 
-DAG \texttt{ml\_pipeline} được định nghĩa với 5 tasks thực thi tuần tự:
+DAG \texttt{ml\_training\_pipeline} gồm 6 tasks thực thi tuần tự. Toàn bộ logic nằm trong các hàm của thư mục \texttt{src/}; DAG chỉ điều phối và chuyển dữ liệu giữa các task qua file.
 
 \begin{figure}[H]
   \centering
   \begin{tcolorbox}[colback=orange!5, colframe=orange!40, arc=5pt]
     \centering
-    \large
     \texttt{data\_ingestion} $\rightarrow$
     \texttt{data\_cleaning} $\rightarrow$
     \texttt{feature\_engineering} $\rightarrow$
     \texttt{model\_training} $\rightarrow$
-    \texttt{model\_evaluation\_and\_registration}
+    \texttt{model\_evaluation\_and\_registration} $\rightarrow$
+    \texttt{deploy\_model}
   \end{tcolorbox}
-  \caption{Airflow DAG -- 5 tasks ML pipeline}
+  \caption{Airflow DAG -- 6 tasks ML pipeline}
   \label{fig:airflow-dag}
 \end{figure}
 
 \begin{description}
-  \item[\texttt{data\_ingestion}:] Load dữ liệu wine từ sklearn, lưu vào \texttt{/tmp/raw\_data.pkl}.
-  \item[\texttt{data\_cleaning}:] Kiểm tra và xử lý missing values, outliers.
-  \item[\texttt{feature\_engineering}:] Chuẩn hóa features bằng StandardScaler, split train/test.
-  \item[\texttt{model\_training}:] Huấn luyện RandomForestClassifier với cross-validation, log metrics MLflow.
-  \item[\texttt{model\_evaluation\_and\_registration}:] Đánh giá trên test set, nếu accuracy $\geq$ 85\% thì đăng ký vào Production.
+  \item[\texttt{data\_ingestion}:] Đọc file CSV theo loại rượu. Mặc định đọc cả hai loại; khi được kích hoạt với tham số \texttt{colors=["red"]} thì chỉ đọc rượu đỏ (dùng cho lần huấn luyện đầu).
+  \item[\texttt{data\_cleaning}:] Kiểm tra schema (thiếu cột thì dừng), ép kiểu, điền giá trị thiếu, loại dòng trùng lặp, tạo nhãn nhị phân.
+  \item[\texttt{feature\_engineering}:] Chia train/test 80/20 có stratify theo từng loại rượu, fit StandardScaler trên tập train và lưu thành artifact.
+  \item[\texttt{model\_training}:] Grid search với 5-fold cross-validation, ghép scaler và mô hình tốt nhất thành một \texttt{Pipeline}, log tham số, metrics, báo cáo explainability và chỉ số fairness lên MLflow.
+  \item[\texttt{model\_evaluation\_and\_registration}:] Chấm mô hình mới và mô hình Production hiện tại trên cùng tập test; đăng ký và đưa lên Production nếu accuracy không thấp hơn.
+  \item[\texttt{deploy\_model}:] Chỉ chạy khi mô hình được promote: gọi API nạp lại mô hình và gửi tập train mới cho Evidently làm reference. Nếu không, task được bỏ qua (skipped).
 \end{description}
 
 \section{Kiến trúc CI/CD}
 
-GitHub Actions workflow được cấu hình với 3 jobs:
+GitHub Actions workflow chạy trên self-hosted runner với 4 jobs nối tiếp nhau:
 \begin{enumerate}
-  \item \textbf{test:} Chạy pytest với coverage check ($\geq$80\%).
-  \item \textbf{lint:} Kiểm tra code style với flake8.
-  \item \textbf{build:} Build Docker images (chạy trên main branch).
+  \item \textbf{lint:} Kiểm tra code style với flake8 và ruff.
+  \item \textbf{test:} Chạy pytest, dừng nếu coverage dưới 80\%.
+  \item \textbf{build:} Build toàn bộ Docker images.
+  \item \textbf{deploy:} Chỉ trên nhánh \texttt{main}: khởi động lại các dịch vụ bằng Docker Compose và chờ API trả lời \texttt{/health}.
 \end{enumerate}
 
 % ============================================================
 %  CHƯƠNG 4: DỮ LIỆU VÀ MÔ HÌNH
 % ============================================================
-\chapter{Mô tả Dữ liệu và Mô hình Học Máy}
+\chapter{Mô tả Dữ liệu, Mô hình và Responsible AI}
 
 \section{Dataset: Wine Quality}
 
-Bộ dữ liệu được sử dụng là \texttt{sklearn.datasets.load\_wine()}, một bộ dữ liệu kinh điển trong học máy. Đây là kết quả phân tích hóa học của 178 mẫu rượu vang từ ba giống nho trồng ở vùng Piedmont, Ý.
+Bộ dữ liệu được sử dụng là \textit{UCI Wine Quality} (Cortez và cộng sự, 2009), gồm kết quả phân tích hóa lý của các mẫu rượu \textit{vinho verde} vùng Bắc Bồ Đào Nha, kèm điểm chất lượng do chuyên gia nếm thử chấm (thang 0--10). Dữ liệu gồm hai file riêng cho rượu đỏ và rượu trắng, được lưu trong thư mục \texttt{data/} của repository để pipeline không phụ thuộc mạng.
 
 \begin{table}[H]
   \centering
-  \caption{Thông tin tổng quan về dataset Wine}
+  \caption{Thông tin tổng quan về dataset Wine Quality}
   \label{tab:dataset}
-  \begin{tabular}{ll}
+  \begin{tabular}{lrrr}
     \toprule
-    \textbf{Thuộc tính} & \textbf{Giá trị} \\
+    \textbf{Thuộc tính} & \textbf{Rượu đỏ} & \textbf{Rượu trắng} & \textbf{Tổng} \\
     \midrule
-    Số mẫu (samples)       & 178 \\
-    Số features            & 13  \\
-    Số lớp (classes)       & 3 (class\_0: 59, class\_1: 71, class\_2: 48) \\
-    Missing values         & Không có \\
-    Kiểu dữ liệu           & Float64 \\
+    Số mẫu gốc                         & 1.599   & 4.898   & 6.497 \\
+    Số mẫu sau khi loại trùng lặp      & 1.359   & 3.961   & 5.320 \\
+    Tỷ lệ mẫu đạt (điểm $\geq 6$)      & 52,9\%  & 66,0\%  & 62,6\% \\
+    Tập huấn luyện (80\%)              & 1.087   & 3.168   & 4.255 \\
+    Tập kiểm tra (20\%)                & 272     & 793     & 1.065 \\
     \bottomrule
   \end{tabular}
 \end{table}
 
-\subsection{Mô tả 13 features}
+Dữ liệu có 11 features kiểu số thực, không có giá trị thiếu. Điểm chất lượng thực tế nằm trong khoảng 3--9 và tập trung ở điểm 5 và 6, nên bài toán được đặt thành \textbf{phân loại nhị phân}: nhãn 1 (đạt) nếu điểm $\geq 6$, ngược lại là 0. Cách đặt này cho hai lớp tương đối cân bằng và tránh các lớp chỉ có vài mẫu (điểm 3 và 9).
+
+\subsection{Mô tả 11 features}
 
 \begin{longtable}{lll}
-  \caption{Mô tả các features trong dataset Wine}
+  \caption{Mô tả các features trong dataset Wine Quality}
   \label{tab:features}\\
   \toprule
   \textbf{STT} & \textbf{Feature} & \textbf{Mô tả} \\
@@ -451,19 +463,17 @@ Bộ dữ liệu được sử dụng là \texttt{sklearn.datasets.load\_wine()}
   \endhead
   \bottomrule
   \endfoot
-  1  & alcohol                      & Nồng độ cồn (\%) \\
-  2  & malic\_acid                  & Axit malic (g/L) \\
-  3  & ash                          & Tro (g/L) \\
-  4  & alcalinity\_of\_ash          & Độ kiềm của tro \\
-  5  & magnesium                    & Magie (mg/L) \\
-  6  & total\_phenols               & Tổng phenol \\
-  7  & flavanoids                   & Flavanoid \\
-  8  & nonflavanoid\_phenols        & Phenol không phải flavanoid \\
-  9  & proanthocyanins              & Proanthocyanin \\
-  10 & color\_intensity             & Cường độ màu sắc \\
-  11 & hue                          & Sắc độ \\
-  12 & od280/od315\_of\_diluted\_wines & Tỷ lệ OD280/OD315 của rượu pha loãng \\
-  13 & proline                      & Proline (mg/L) \\
+  1  & fixed\_acidity          & Độ axit cố định (g/dm$^3$) \\
+  2  & volatile\_acidity       & Độ axit bay hơi (g/dm$^3$) \\
+  3  & citric\_acid            & Axit citric (g/dm$^3$) \\
+  4  & residual\_sugar         & Đường dư (g/dm$^3$) \\
+  5  & chlorides               & Clorua (g/dm$^3$) \\
+  6  & free\_sulfur\_dioxide   & Sulfur dioxide tự do (mg/dm$^3$) \\
+  7  & total\_sulfur\_dioxide  & Tổng sulfur dioxide (mg/dm$^3$) \\
+  8  & density                 & Khối lượng riêng (g/cm$^3$) \\
+  9  & pH                      & Độ pH \\
+  10 & sulphates               & Sunfat (g/dm$^3$) \\
+  11 & alcohol                 & Nồng độ cồn (\% thể tích) \\
 \end{longtable}
 
 \section{Mô hình học máy}
@@ -472,29 +482,32 @@ Bộ dữ liệu được sử dụng là \texttt{sklearn.datasets.load\_wine()}
 
 Chúng tôi sử dụng \textbf{Random Forest Classifier} từ thư viện scikit-learn vì các lý do:
 \begin{itemize}
-  \item Xử lý tốt dữ liệu đa chiều mà không cần feature selection thủ công.
+  \item Xử lý tốt dữ liệu dạng bảng kích thước nhỏ mà không cần feature selection thủ công.
   \item Ít bị overfitting nhờ cơ chế ensemble averaging.
-  \item Cung cấp feature importance giúp giải thích mô hình (explainability).
-  \item Không yêu cầu chuẩn hóa dữ liệu đầu vào (robust với scale khác nhau).
+  \item Cung cấp feature importance và hỗ trợ SHAP TreeExplainer giúp giải thích mô hình.
+  \item Không cần GPU, thời gian huấn luyện ngắn, phù hợp với việc tái huấn luyện tự động.
 \end{itemize}
 
 \subsection{Hyperparameters}
 
+Hyperparameters được chọn bằng grid search với cross-validation trên tập train. Mỗi tổ hợp trong lưới được ghi thành một run con trên MLflow.
+
 \begin{table}[H]
   \centering
-  \caption{Hyperparameters của RandomForestClassifier}
+  \caption{Lưới tìm kiếm hyperparameters của RandomForestClassifier}
   \label{tab:hyperparams}
   \begin{tabular}{lll}
     \toprule
-    \textbf{Tham số} & \textbf{Giá trị} & \textbf{Giải thích} \\
+    \textbf{Tham số} & \textbf{Giá trị thử} & \textbf{Giải thích} \\
     \midrule
-    \texttt{n\_estimators}  & 100          & Số cây quyết định \\
-    \texttt{max\_depth}     & None         & Không giới hạn độ sâu \\
-    \texttt{random\_state}  & 42           & Seed cố định để tái lập \\
-    \texttt{n\_jobs}        & -1           & Dùng tất cả CPU cores \\
+    \texttt{n\_estimators}      & 100, 300       & Số cây quyết định \\
+    \texttt{max\_depth}         & 5, 10, None    & Độ sâu tối đa của cây \\
+    \texttt{min\_samples\_leaf} & 1, 3           & Số mẫu tối thiểu ở mỗi lá \\
+    \texttt{random\_state}      & 42             & Seed cố định để tái lập \\
     \midrule
-    \texttt{test\_size}     & 0.2 (80/20)  & Tỷ lệ train/test split \\
-    \texttt{cv\_folds}      & 5            & 5-fold cross-validation \\
+    Số tổ hợp                   & 12             & $2 \times 3 \times 2$ \\
+    \texttt{cv}                 & 5 folds        & Stratified, có xáo trộn \\
+    \texttt{test\_size}         & 0.2 (80/20)    & Tỷ lệ train/test split \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -502,20 +515,40 @@ Chúng tôi sử dụng \textbf{Random Forest Classifier} từ thư viện sciki
 \subsection{Quy trình tiền xử lý dữ liệu}
 
 \begin{enumerate}
-  \item \textbf{Load data:} \texttt{sklearn.datasets.load\_wine()} trả về \texttt{(X, y)} với $X \in \mathbb{R}^{178 \times 13}$, $y \in \{0,1,2\}^{178}$.
-  \item \textbf{Train-test split:} Phân chia 80\% train / 20\% test, stratified theo nhãn.
-  \item \textbf{Feature scaling:} \texttt{StandardScaler} chuẩn hóa mỗi feature về $\mu=0$, $\sigma=1$.
-  \item \textbf{Cross-validation:} 5-fold CV trên tập train để ước lượng hiệu năng khái quát.
+  \item \textbf{Load data:} Đọc file CSV theo loại rượu, thêm cột \texttt{color}.
+  \item \textbf{Làm sạch:} Kiểm tra đủ cột, ép kiểu float, điền giá trị thiếu bằng trung vị, loại 1.177 dòng trùng lặp (nếu để lại, cùng một mẫu có thể nằm ở cả tập train và tập test).
+  \item \textbf{Tạo nhãn:} \texttt{target} $= 1$ nếu \texttt{quality} $\geq 6$.
+  \item \textbf{Train-test split:} 80\% train / 20\% test, stratified theo nhãn và thực hiện riêng cho từng loại rượu. Nhờ vậy tập test rượu đỏ không thay đổi khi thêm rượu trắng, và mô hình cũ không bao giờ được huấn luyện trên các mẫu dùng để so sánh nó với mô hình mới.
+  \item \textbf{Feature scaling:} \texttt{StandardScaler} fit trên tập train. Scaler và mô hình được ghép thành một \texttt{Pipeline} duy nhất, nên mô hình được phục vụ nhận trực tiếp dữ liệu thô.
 \end{enumerate}
 
-\subsection{Explainability -- Giải thích mô hình}
+\section{Responsible AI}
 
-Module \texttt{src/explainability.py} cung cấp:
+\subsection{Tính công bằng (Fairness)}
+
+Dữ liệu không chứa thông tin cá nhân nên không có thuộc tính nhạy cảm như giới tính hay tuổi. Nhóm cần quan tâm là \textbf{loại rượu}: một mô hình sai nhiều hơn một cách có hệ thống trên một loại rượu là không công bằng với nhà sản xuất loại rượu đó. Module \texttt{src/fairness.py} tính cho từng nhóm: accuracy, tỷ lệ được dự đoán ``đạt'' (selection rate), true positive rate (TPR) và false positive rate (FPR), cùng khoảng cách lớn nhất giữa các nhóm. Các chỉ số này được log lên MLflow ở mỗi lần huấn luyện. Kết quả được trình bày ở mục \ref{sec:fairness-result}.
+
+\subsection{Khả năng giải thích (Explainability)}
+
+Module \texttt{src/explainability.py} dùng ba phương pháp bổ sung cho nhau:
 \begin{itemize}
-  \item \textbf{Feature Importance:} Xếp hạng 13 features theo mức độ đóng góp.
-  \item \textbf{Prediction Explanation:} Giải thích từng dự đoán cụ thể.
-  \item \textbf{Model Summary Report:} Báo cáo tổng hợp về mô hình.
+  \item \textbf{Feature importance theo impurity:} mức độ rừng cây dùng mỗi feature để tách nút (toàn cục, tính từ quá trình huấn luyện).
+  \item \textbf{Permutation importance:} mức giảm accuracy trên dữ liệu chưa thấy khi xáo trộn một feature (toàn cục, không phụ thuộc loại mô hình).
+  \item \textbf{SHAP (TreeExplainer):} đóng góp của từng feature vào từng dự đoán cụ thể (cục bộ), tổng hợp thành biểu đồ summary.
 \end{itemize}
+
+Báo cáo HTML cùng các biểu đồ được lưu thành artifact của mỗi run trên MLflow.
+
+\subsection{Quyền riêng tư và đạo đức}
+
+\begin{itemize}
+  \item \textbf{Quyền riêng tư:} Dữ liệu chỉ gồm chỉ số hóa lý của rượu, không có thương hiệu, nhà sản xuất hay giá bán. Hệ thống chỉ lưu tạm 10.000 inference gần nhất trong bộ nhớ của dịch vụ Evidently. API chưa có xác thực, chỉ phù hợp cho môi trường demo.
+  \item \textbf{Vai trò của mô hình:} ``Chất lượng'' là đánh giá cảm quan của con người và khoảng 24\% dự đoán là sai, nên mô hình chỉ đóng vai trò sàng lọc sơ bộ, không thay thế hội đồng nếm thử.
+  \item \textbf{Nhãn mang tính chủ quan:} Điểm số đến từ một nhóm nhỏ chuyên gia của một vùng rượu; không nên dùng mô hình cho vùng rượu khác khi chưa có dữ liệu mới.
+  \item \textbf{Rủi ro của tự động hóa:} Mô hình retrain chỉ được triển khai khi không kém mô hình Production trên cùng tập test; các phiên bản cũ được giữ lại trong registry để có thể quay lui.
+\end{itemize}
+
+Phân tích đầy đủ nằm trong file \texttt{RESPONSIBLE\_AI.md} của repository.
 
 % ============================================================
 %  CHƯƠNG 5: TRIỂN KHAI VÀ THỰC NGHIỆM
@@ -532,13 +565,15 @@ Module \texttt{src/explainability.py} cung cấp:
     \toprule
     \textbf{Thành phần} & \textbf{Chi tiết} \\
     \midrule
-    Hệ điều hành    & Windows 11 Pro \\
+    Hệ điều hành    & Windows 11 \\
     Docker Desktop  & Docker Engine 27.x \\
-    Python          & 3.11 \\
-    scikit-learn    & $\geq$1.5.0 \\
-    numpy           & $\geq$2.0.0 \\
-    MLflow          & 2.x (build from Dockerfile) \\
-    Airflow image   & \texttt{ddm501-t03-airflow:2.8.4} \\
+    Python          & 3.10 (trong container) \\
+    scikit-learn    & 1.5.2 (ghim giống nhau ở API và Airflow) \\
+    numpy           & 1.26.4 (ghim giống nhau ở API và Airflow) \\
+    MLflow          & 2.16.2 (build từ \texttt{mlflow/Dockerfile}) \\
+    Airflow         & 2.8.4 (build từ \texttt{airflow/Dockerfile}) \\
+    Evidently       & 0.4.26 \\
+    FastAPI         & 0.104.1 \\
     Prometheus      & v2.54.1 \\
     Grafana         & 11.2.0 \\
     PostgreSQL      & 15-alpine \\
@@ -551,17 +586,17 @@ Module \texttt{src/explainability.py} cung cấp:
 \subsection{Bước 1: Khởi động hạ tầng}
 
 \begin{lstlisting}[language=bash, caption=Khởi động toàn bộ 8 services bằng Docker Compose]
-# Di chuyển vào thư mục dự án
-cd ml-monitoring
+# Tao file cau hinh tu file mau
+cp .env.example .env
 
-# Khởi động tất cả services ở chế độ daemon
-docker compose up -d
+# Build va khoi dong tat ca services o che do daemon
+docker compose up -d --build
 
-# Kiểm tra trạng thái
+# Kiem tra trang thai
 docker compose ps
 \end{lstlisting}
 
-Sau khi chạy lệnh trên, 8 containers sẽ được khởi động và sẵn sàng sau khoảng 30-60 giây.
+Sau khi chạy lệnh trên, 8 containers được khởi động và sẵn sàng sau khoảng 1--2 phút. Lúc này API báo \texttt{unhealthy} vì chưa có mô hình nào.
 
 \subsection{Bước 2: Huấn luyện mô hình ban đầu}
 
@@ -569,28 +604,31 @@ Sau khi chạy lệnh trên, 8 containers sẽ được khởi động và sẵn
 python scripts/training.py
 \end{lstlisting}
 
-Script \texttt{training.py} thực hiện:
+Script \texttt{training.py} kích hoạt Airflow DAG với tham số chỉ dùng rượu đỏ và chờ DAG chạy xong. DAG thực hiện:
 \begin{itemize}
-  \item Load dataset wine từ sklearn.
-  \item Huấn luyện RandomForestClassifier.
-  \item Log metrics (accuracy, precision, recall, F1) lên MLflow.
+  \item Đọc và làm sạch dữ liệu rượu đỏ.
+  \item Grid search và huấn luyện RandomForestClassifier.
+  \item Log tham số, metrics (accuracy, precision, recall, F1, cross-validation), báo cáo explainability lên MLflow.
   \item Đăng ký mô hình \texttt{wine\_quality\_model} Version 1 vào stage \textbf{Production}.
+  \item Gọi API nạp mô hình và gửi tập train cho Evidently làm reference.
 \end{itemize}
 
 \subsection{Bước 3: Demo drift và tái huấn luyện tự động}
 
-\begin{lstlisting}[language=bash, caption=Chạy demo giả lập data drift]
+\begin{lstlisting}[language=bash, caption=Chạy demo data drift]
 python scripts/simulate_drift_and_retrain.py
 \end{lstlisting}
 
 Kịch bản mô phỏng:
 \begin{enumerate}
-  \item Gửi \textbf{100 request bình thường} đến API \texttt{POST /predict} với dữ liệu gốc.
-  \item Gửi \textbf{250 request với dữ liệu bị nhiễu} (Gaussian noise: $\mu=0$, $\sigma=2.0$).
-  \item Evidently AI phát hiện drift ($\geq$30\% features bị drift).
-  \item Kích hoạt Airflow DAG \texttt{ml\_pipeline} qua REST API.
-  \item DAG chạy tự động 5 tasks và đăng ký model phiên bản mới.
+  \item Gửi \textbf{100 request rượu đỏ} đến API \texttt{POST /predict} và yêu cầu Evidently phân tích: không có drift.
+  \item Gửi \textbf{250 request rượu trắng}.
+  \item Evidently phát hiện drift ($\geq$30\% features bị drift) và tự kích hoạt Airflow DAG \texttt{ml\_training\_pipeline} qua REST API.
+  \item DAG chạy 6 tasks trên cả hai loại rượu; mô hình mới được so sánh với mô hình cũ và đăng ký phiên bản mới.
+  \item Script chờ DAG hoàn thành và xác nhận API đã chuyển sang phiên bản mô hình mới.
 \end{enumerate}
+
+Script không tự gán kết quả: nếu Evidently không phát hiện drift hoặc không kích hoạt được DAG, script kết thúc với mã lỗi.
 
 \subsection{Bước 4: Giám sát và quan sát kết quả}
 
@@ -622,32 +660,33 @@ Sau khi hệ thống chạy, người dùng có thể truy cập các giao diệ
   \centering
   \caption{Danh sách test files và số lượng test cases}
   \label{tab:tests}
-  \begin{tabular}{lll}
+  \begin{tabularx}{\textwidth}{lXr}
     \toprule
-    \textbf{File test} & \textbf{Module được test} & \textbf{Số tests} \\
+    \textbf{File test} & \textbf{Loại test và nội dung} & \textbf{Số tests} \\
     \midrule
-    \texttt{test\_data.py}          & \texttt{src/data\_pipeline.py}       & $\sim$12 \\
-    \texttt{test\_train.py}         & \texttt{src/train.py}                & $\sim$10 \\
-    \texttt{test\_evaluate.py}      & \texttt{src/evaluate.py}             & $\sim$14 \\
-    \texttt{test\_explainability.py} & \texttt{src/explainability.py}      & $\sim$10 \\
-    \texttt{test\_api.py}           & \texttt{api/main.py} (FastAPI)       & $\sim$15 \\
-    \texttt{test\_model.py}         & Integration tests                    & $\sim$13 \\
+    \texttt{test\_data.py}           & Unit + data quality: schema, null, trùng lặp, nhãn, split, scaler & 17 \\
+    \texttt{test\_train.py}          & Unit: huấn luyện, tuning, log MLflow (mock)                       & 15 \\
+    \texttt{test\_evaluate.py}       & Unit: đánh giá, quy tắc promote, registry (mock)                  & 15 \\
+    \texttt{test\_model.py}          & Model validation: accuracy tối thiểu, tái lập, số lớp             & 7  \\
+    \texttt{test\_api.py}            & Integration: ứng dụng FastAPI thật, mọi endpoint và nhánh lỗi     & 24 \\
+    \texttt{test\_explainability.py} & Unit: feature importance, permutation importance, SHAP            & 12 \\
+    \texttt{test\_fairness.py}       & Unit: chỉ số fairness theo nhóm                                   & 6  \\
     \midrule
-    \textbf{Tổng cộng} & & \textbf{74 tests} \\
+    \textbf{Tổng cộng} & & \textbf{96} \\
     \bottomrule
-  \end{tabular}
+  \end{tabularx}
 \end{table}
 
 \subsection{Chạy kiểm thử}
 
 \begin{lstlisting}[language=bash, caption=Chạy bộ test với coverage report]
 # Cai dat dependencies
-pip install pytest pytest-cov
+pip install -r requirements.txt
 
 # Chay toan bo test voi coverage
 pytest tests/ --cov=src --cov=api --cov-report=term-missing -v
 
-# Ket qua: 74 tests PASSED -- coverage: 90%
+# Ket qua: 96 tests PASSED -- coverage: 96%
 \end{lstlisting}
 
 \section{Xử lý các thách thức kỹ thuật}
@@ -655,13 +694,17 @@ pytest tests/ --cov=src --cov=api --cov-report=term-missing -v
 Trong quá trình triển khai, nhóm đã gặp và giải quyết một số thách thức kỹ thuật đáng chú ý:
 
 \begin{enumerate}
-  \item \textbf{MinIO Docker image bị ngừng hỗ trợ (October 2025):} Ban đầu hệ thống được thiết kế dùng MinIO làm artifact store. Tuy nhiên, image \texttt{minio/minio} không còn pull được từ Docker Hub. Giải pháp: thay thế hoàn toàn bằng local file storage (\texttt{file:///mlflow/artifacts}), mount volume \texttt{C:/mlflow:/mlflow} vào tất cả containers cần truy cập artifact.
+  \item \textbf{Lưu trữ artifacts của MLflow:} Ban đầu hệ thống dùng MinIO làm artifact store, nhưng image \texttt{minio/minio} không còn pull được từ Docker Hub. Giải pháp tạm thời là mount thư mục \texttt{C:/mlflow} vào mọi container, cách này phụ thuộc đường dẫn của máy host và gây lỗi \texttt{Permission denied} ở Airflow. Giải pháp cuối cùng: MLflow server lưu artifacts trên một Docker volume và phục vụ qua HTTP (\texttt{-{}-serve-artifacts}), các dịch vụ khác không cần mount gì.
 
-  \item \textbf{NumPy version mismatch:} Container API dùng NumPy 1.24.3 không đọc được model pickle được lưu bởi NumPy 2.x (lỗi \texttt{No module named 'numpy.\_core'}). Giải pháp: nâng lên \texttt{numpy>=2.0.0} trong \texttt{api/requirements.txt}.
+  \item \textbf{Lệch phiên bản NumPy giữa nơi huấn luyện và nơi phục vụ:} Mô hình pickle bởi NumPy 2.x không đọc được ở container dùng NumPy 1.x (lỗi \texttt{No module named 'numpy.\_core'}). Giải pháp: mọi lần huấn luyện đều chạy trong container Airflow, và \texttt{numpy}, \texttt{scikit-learn} được ghim cùng phiên bản ở Airflow và API.
 
-  \item \textbf{UnicodeEncodeError trên Windows:} Scripts sử dụng emoji trong print gây lỗi \texttt{UnicodeEncodeError} với encoding mặc định của Windows terminal (cp1252). Giải pháp: thêm \texttt{sys.stdout.reconfigure(encoding='utf-8')} đầu mỗi script.
+  \item \textbf{Lệch train/serve:} Mô hình được huấn luyện trên dữ liệu đã chuẩn hóa nhưng API gửi dữ liệu thô. Giải pháp: ghép scaler và mô hình thành một \texttt{Pipeline} và đăng ký cả pipeline lên MLflow.
 
-  \item \textbf{Airflow Permission Denied trên MLflow artifacts:} Task \texttt{model\_training} lỗi \texttt{Permission denied: '/mlflow'} do airflow container không được mount volume. Giải pháp: thêm \texttt{C:/mlflow:/mlflow} vào cả airflow-webserver và airflow-scheduler.
+  \item \textbf{Evidently báo drift sai trên dữ liệu bình thường:} Khi reference có hơn 1.000 dòng, Evidently mặc định dùng khoảng cách Wasserstein và báo drift 6--10/11 features ngay cả với 100 mẫu rượu đỏ bình thường. Giải pháp: chỉ định kiểm định Kolmogorov--Smirnov; khi đó dữ liệu bình thường chỉ còn 0--2 features bị báo drift, còn rượu trắng là 10--11.
+
+  \item \textbf{Cross-validation bị chia theo loại rượu:} Tập train được nối từ rượu đỏ rồi rượu trắng, nên các fold không xáo trộn gần như chỉ chứa một loại rượu (độ lệch chuẩn của CV accuracy là 0,086). Giải pháp: dùng \texttt{StratifiedKFold} có xáo trộn (độ lệch chuẩn còn 0,010).
+
+  \item \textbf{Ký tự xuống dòng trên Windows:} Script \texttt{init-db.sh} bị Git chuyển sang CRLF khiến container PostgreSQL không khởi động (\texttt{bad interpreter}). Giải pháp: thêm \texttt{.gitattributes} buộc các file \texttt{.sh} dùng LF. Tương tự, emoji trong lệnh \texttt{print} gây \texttt{UnicodeEncodeError} trên terminal Windows, được xử lý bằng \texttt{sys.stdout.reconfigure(encoding='utf-8')}.
 \end{enumerate}
 
 % ============================================================
@@ -672,106 +715,232 @@ Trong quá trình triển khai, nhóm đã gặp và giải quyết một số t
 \section{Kết quả huấn luyện mô hình}
 
 \begin{resultbox}
-\textbf{Model:} \texttt{wine\_quality\_model} -- Version 1\\
-\textbf{Stage:} Production\\
-\textbf{Dataset:} sklearn Wine (178 mẫu, 80\% train / 20\% test = 142/36 mẫu)
+\textbf{Version 1} -- huấn luyện ban đầu trên rượu đỏ (1.087 mẫu train, 272 mẫu test)\\
+Hyperparameters tốt nhất: \texttt{n\_estimators=300}, \texttt{max\_depth=10}, \texttt{min\_samples\_leaf=1}
 
-\vspace{0.3cm}
+\vspace{0.2cm}
 \begin{tabular}{ll}
-  Accuracy (test set)      & \textbf{100\%} \\
-  Precision (macro avg)    & 1.000 \\
-  Recall (macro avg)       & 1.000 \\
-  F1-score (macro avg)     & 1.000 \\
-  Cross-validation (5-fold) & $97.9\% \pm 2.8\%$ \\
+  Accuracy (test set rượu đỏ)   & \textbf{77,6\%} \\
+  Precision / Recall / F1 (weighted) & 0,777 / 0,776 / 0,776 \\
+  Cross-validation (5-fold)     & $76,0\% \pm 4,1\%$ \\
+\end{tabular}
+
+\vspace{0.4cm}
+\textbf{Version 2} -- tái huấn luyện trên rượu đỏ + trắng (4.255 mẫu train, 1.065 mẫu test)\\
+Hyperparameters tốt nhất: \texttt{n\_estimators=300}, \texttt{max\_depth=None}, \texttt{min\_samples\_leaf=3}
+
+\vspace{0.2cm}
+\begin{tabular}{ll}
+  Accuracy (test set đỏ + trắng) & \textbf{76,1\%} \\
+  Precision / Recall / F1 (weighted) & 0,759 / 0,761 / 0,760 \\
+  Cross-validation (5-fold)     & $76,9\% \pm 1,0\%$ \\
+  Version 1 trên cùng test set  & 70,7\% \\
 \end{tabular}
 \end{resultbox}
 
 \begin{notebox}
-Độ chính xác 100\% trên tập kiểm tra không phải do overfitting. Dataset Wine là bộ dữ liệu nhỏ nhưng có sự phân biệt rõ ràng giữa các lớp. Random Forest với 100 cây đủ để học đầy đủ các ranh giới quyết định. Cross-validation 5-fold cho $97.9\%$ xác nhận mô hình có khả năng khái quát tốt.
+Độ chính xác khoảng 76\% là mức thực tế của bài toán này: nhãn là đánh giá cảm quan của con người và ranh giới giữa điểm 5 và điểm 6 không rõ ràng. Điều quan trọng với hệ thống là \textbf{mức chênh lệch}: Version 1 chỉ đạt 70,7\% khi dữ liệu có thêm rượu trắng, còn Version 2 đạt 76,1\% trên cùng tập kiểm tra. Đây là căn cứ để pipeline tự động đưa Version 2 lên Production.
 \end{notebox}
+
+\section{Kết quả phát hiện drift và tái huấn luyện}
+
+\begin{table}[H]
+  \centering
+  \caption{Kết quả chạy script \texttt{simulate\_drift\_and\_retrain.py}}
+  \label{tab:drift-result}
+  \begin{tabularx}{\textwidth}{lXX}
+    \toprule
+    \textbf{Bước} & \textbf{Dữ liệu gửi đến API} & \textbf{Kết quả} \\
+    \midrule
+    1 & 100 mẫu rượu đỏ (bình thường)  & 0/11 features drift -- không drift \\
+    2--3 & 250 mẫu rượu trắng          & 10/11 features drift -- có drift, kích hoạt DAG \\
+    4 & --                             & DAG thành công, API chuyển từ Version 1 sang Version 2 \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+Trên MLflow, run của lần tái huấn luyện được gắn tag cho biết nó do Evidently kích hoạt. Run này ghi cả accuracy của mô hình mới (0,761) và accuracy của mô hình Production cũ trên cùng tập kiểm tra (0,707), cho thấy rõ lý do mô hình được promote. Sau khi triển khai, reference của Evidently được cập nhật từ 1.087 dòng rượu đỏ thành 4.255 dòng của cả hai loại.
 
 \section{Kết quả kiểm thử tự động}
 
 \begin{resultbox}
-\textbf{Tổng số test cases:} 74\\
-\textbf{Kết quả:} 74 PASSED, 0 FAILED, 0 ERROR\\
-\textbf{Code Coverage:} \textbf{90\%} (yêu cầu $\geq$80\%)\\
-\textbf{Thời gian chạy:} $\sim$45 giây
+\textbf{Tổng số test cases:} 96\\
+\textbf{Kết quả:} 96 PASSED, 0 FAILED, 0 ERROR\\
+\textbf{Code Coverage:} \textbf{96\%} trên \texttt{src/} và \texttt{api/} (yêu cầu $\geq$80\%)\\
+\textbf{Thời gian chạy:} $\sim$100 giây
 \end{resultbox}
 
 \section{Kết quả Airflow DAG}
 
-Sau khi script drift detection phát hiện data drift, Airflow DAG được kích hoạt và hoàn thành thành công:
+Sau khi Evidently phát hiện data drift, Airflow DAG được kích hoạt và hoàn thành thành công:
 
 \begin{table}[H]
   \centering
-  \caption{Kết quả thực thi Airflow DAG}
+  \caption{Kết quả thực thi Airflow DAG ở lần tái huấn luyện}
   \label{tab:dag-result}
   \begin{tabular}{llll}
     \toprule
     \textbf{Task} & \textbf{Trạng thái} & \textbf{Duration} & \textbf{Ghi chú} \\
     \midrule
-    data\_ingestion                      & \textcolor{green!60!black}{\textbf{SUCCESS}} & $\sim$2s  & Load wine dataset \\
-    data\_cleaning                       & \textcolor{green!60!black}{\textbf{SUCCESS}} & $\sim$1s  & No missing values \\
-    feature\_engineering                 & \textcolor{green!60!black}{\textbf{SUCCESS}} & $\sim$1s  & StandardScaler fit \\
-    model\_training                      & \textcolor{green!60!black}{\textbf{SUCCESS}} & $\sim$8s  & RF 100 estimators \\
-    model\_evaluation\_and\_registration & \textcolor{green!60!black}{\textbf{SUCCESS}} & $\sim$3s  & Đăng ký Production \\
+    data\_ingestion                      & \textcolor{green!60!black}{\textbf{SUCCESS}} & $\sim$0,4s & Đọc 6.497 mẫu \\
+    data\_cleaning                       & \textcolor{green!60!black}{\textbf{SUCCESS}} & $\sim$0,4s & Còn 5.320 mẫu \\
+    feature\_engineering                 & \textcolor{green!60!black}{\textbf{SUCCESS}} & $\sim$0,3s & Split, fit scaler \\
+    model\_training                      & \textcolor{green!60!black}{\textbf{SUCCESS}} & $\sim$80s  & Grid search 12 tổ hợp \\
+    model\_evaluation\_and\_registration & \textcolor{green!60!black}{\textbf{SUCCESS}} & $\sim$2s   & Promote Version 2 \\
+    deploy\_model                        & \textcolor{green!60!black}{\textbf{SUCCESS}} & $\sim$0,7s & Reload API, reference \\
     \midrule
-    \textbf{Tổng} & \textcolor{green!60!black}{\textbf{5/5 SUCCESS}} & $\sim$15s & \\
+    \textbf{Tổng} & \textcolor{green!60!black}{\textbf{6/6 SUCCESS}} & $\sim$84s & \\
     \bottomrule
   \end{tabular}
 \end{table}
+
+Lần huấn luyện ban đầu (chỉ rượu đỏ) mất khoảng 43 giây, trong đó \texttt{model\_training} chiếm 39 giây.
+
+\section{Kết quả Responsible AI}
+\label{sec:fairness-result}
+
+\subsection{Fairness giữa hai loại rượu}
+
+\begin{table}[H]
+  \centering
+  \caption{Chỉ số theo từng loại rượu trên tập kiểm tra (272 đỏ, 793 trắng)}
+  \label{tab:fairness}
+  \begin{tabular}{llrrrr}
+    \toprule
+    \textbf{Mô hình} & \textbf{Loại rượu} & \textbf{Accuracy} & \textbf{Dự đoán đạt} & \textbf{TPR} & \textbf{FPR} \\
+    \midrule
+    Version 1 (chỉ đỏ)     & Đỏ    & 0,776 & 0,511 & 0,771 & 0,219 \\
+                           & Trắng & 0,683 & 0,562 & 0,686 & 0,322 \\
+    \midrule
+    Version 2 (đỏ + trắng) & Đỏ    & 0,783 & 0,504 & 0,771 & 0,203 \\
+                           & Trắng & 0,753 & 0,687 & 0,834 & 0,404 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\begin{table}[H]
+  \centering
+  \caption{Khoảng cách giữa hai loại rượu (0 là hoàn toàn đồng đều)}
+  \label{tab:fairness-gap}
+  \begin{tabular}{lrr}
+    \toprule
+    \textbf{Tiêu chí} & \textbf{Version 1} & \textbf{Version 2} \\
+    \midrule
+    Accuracy                              & 0,092 & 0,030 \\
+    Equal opportunity (TPR)               & 0,084 & 0,063 \\
+    Demographic parity (tỷ lệ dự đoán đạt) & 0,051 & 0,184 \\
+    False positive rate                   & 0,103 & 0,201 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+Version 1 có thiên lệch do thiếu đại diện (representation bias): trên rượu trắng nó chỉ đạt 68,3\%, gần bằng việc luôn trả lời ``đạt'' (66,0\%). Tái huấn luyện là biện pháp giảm thiên lệch: khoảng cách accuracy giảm từ 0,092 xuống 0,030 mà không làm giảm kết quả trên rượu đỏ.
+
+Tuy nhiên Version 2 chưa công bằng theo mọi tiêu chí. Khoảng cách FPR tăng gấp đôi: 40,4\% rượu trắng không đạt bị dự đoán là đạt, so với 20,3\% ở rượu đỏ. Với một công cụ sàng lọc, đây là loại lỗi tốn kém. Khoảng cách demographic parity tăng chủ yếu vì hai loại rượu khác nhau thật (66,0\% rượu trắng đạt so với 52,9\% rượu đỏ). Các hướng khắc phục chưa thực hiện gồm: ngưỡng quyết định riêng cho từng loại rượu, thêm loại rượu làm feature, và bổ sung điều kiện về khoảng cách fairness vào quy tắc promote.
+
+\subsection{Explainability}
+
+\begin{table}[H]
+  \centering
+  \caption{Mức độ quan trọng của features với Version 2 (các feature còn lại có giá trị nhỏ hơn)}
+  \label{tab:importance}
+  \begin{tabular}{lrr}
+    \toprule
+    \textbf{Feature} & \textbf{Permutation importance} & \textbf{Impurity importance} \\
+    \midrule
+    alcohol                & 0,081 & 0,207 \\
+    volatile\_acidity      & 0,053 & 0,114 \\
+    free\_sulfur\_dioxide  & 0,020 & 0,082 \\
+    sulphates              & 0,015 & 0,076 \\
+    total\_sulfur\_dioxide & 0,014 & 0,076 \\
+    density                & 0,003 & 0,107 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+Cả hai phương pháp đều cho thấy \texttt{alcohol} và \texttt{volatile\_acidity} là hai yếu tố quyết định, phù hợp với hiểu biết về rượu vang (độ axit bay hơi cao gây vị giấm). Hai phương pháp bất đồng về \texttt{density}: rừng cây dùng nó nhiều để tách nút (0,107) nhưng xáo trộn nó gần như không làm giảm accuracy (0,003), vì \texttt{density} gần như được xác định bởi nồng độ cồn và lượng đường. Đây là lý do không nên chỉ dùng impurity importance.
 
 \section{Kết quả giám sát hệ thống}
 
 \subsection{Prometheus Metrics}
 
-Prometheus thu thập các metrics sau từ FastAPI:
+Prometheus thu thập các metrics sau từ FastAPI (chu kỳ 5 giây) và từ Evidently:
 \begin{itemize}
-  \item \texttt{http\_requests\_total}: Tổng số requests theo endpoint và status code.
-  \item \texttt{http\_request\_duration\_seconds}: Phân phối latency theo histogram.
-  \item \texttt{model\_predictions\_total}: Số dự đoán theo class.
-  \item \texttt{model\_prediction\_latency}: Thời gian inference.
+  \item \texttt{api\_requests\_total}: Tổng số requests theo endpoint và status code.
+  \item \texttt{api\_request\_latency\_seconds}: Phân phối latency theo histogram.
+  \item \texttt{model\_predictions\_total}: Số dự đoán theo phiên bản mô hình.
+  \item \texttt{model\_prediction\_latency\_seconds}: Thời gian inference.
+  \item \texttt{model\_prediction\_value}: Phân phối giá trị dự đoán (0 hoặc 1).
+  \item \texttt{model\_prediction\_errors\_total}: Số lỗi dự đoán theo loại lỗi.
+  \item \texttt{evidently\_data\_drift\_detected}: Dataset có bị drift hay không.
+  \item \texttt{evidently\_drifted\_features\_count}: Số features bị drift.
+  \item \texttt{evidently\_feature\_drift}: Trạng thái drift của từng feature.
 \end{itemize}
+
+Trong lần chạy demo (350 requests), latency p95 của \texttt{/predict} vào khoảng 50 ms. Đây là số đo trên máy cục bộ, không phải kết quả load test.
 
 \subsection{Grafana Dashboard}
 
-Grafana hiển thị 4 panels chính:
+Grafana được cấu hình sẵn (provisioning) hai dashboard:
 \begin{enumerate}
-  \item \textbf{Request Rate:} Số request/giây theo thời gian thực.
-  \item \textbf{Response Time:} Phân phối latency P50/P95/P99.
-  \item \textbf{Prediction Distribution:} Tỷ lệ dự đoán class 0/1/2.
-  \item \textbf{Error Rate:} Tỷ lệ requests lỗi (4xx, 5xx).
+  \item \textbf{ML Model Monitoring} (9 panels): số request/giây, latency P50/P95/P99, tỷ lệ lỗi, request theo status code, số dự đoán/giây, latency của mô hình và phân phối dự đoán.
+  \item \textbf{Evidently -- Data Drift Monitoring} (11 panels): trạng thái drift, số features bị drift, drift score theo thời gian, ma trận drift theo feature, thời gian và tần suất phân tích, tỷ lệ giá trị thiếu.
 \end{enumerate}
+
+\subsection{Alerting}
+
+Prometheus nạp 24 alert rules từ thư mục \texttt{config/prometheus/}: 6 rules cho API và mô hình, 18 rules cho drift và chất lượng dữ liệu. Một số rule tiêu biểu:
+
+\begin{table}[H]
+  \centering
+  \caption{Một số alert rules}
+  \label{tab:alerts}
+  \begin{tabularx}{\textwidth}{lXl}
+    \toprule
+    \textbf{Alert} & \textbf{Điều kiện} & \textbf{Mức độ} \\
+    \midrule
+    ModelAPIDown        & Prometheus không scrape được API trong 1 phút        & critical \\
+    ModelNotLoaded      & Có dự đoán bị từ chối vì API chưa nạp mô hình        & critical \\
+    HighErrorRate       & Hơn 5\% requests trả về lỗi 5xx trong 5 phút         & critical \\
+    HighPredictLatency  & Latency p95 của \texttt{/predict} trên 500 ms        & warning \\
+    DataDriftDetected   & Evidently báo dataset drift                          & warning \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
 
 \section{Kết quả CI/CD}
 
 GitHub Actions workflow được cấu hình tại \texttt{.github/workflows/ci-cd.yml}:
 \begin{itemize}
-  \item \textbf{Trigger:} Push lên branch \texttt{main} hoặc \texttt{develop}, hoặc mở Pull Request.
-  \item \textbf{Jobs:} Test (với coverage check) → Lint → Build.
-  \item \textbf{Status:} Tất cả jobs PASS khi code trên main branch.
+  \item \textbf{Trigger:} Push lên branch \texttt{main} hoặc \texttt{develop}, hoặc mở Pull Request vào \texttt{main}.
+  \item \textbf{Jobs:} Lint → Test (với coverage check) → Build → Deploy (chỉ trên \texttt{main}).
+  \item \textbf{Runner:} self-hosted.
 \end{itemize}
+
+Các bước lint và test của workflow đã được chạy cục bộ với cùng lệnh và đều đạt (flake8 và ruff không có lỗi, 96 tests pass).
 
 \section{So sánh với yêu cầu đề tài}
 
 \begin{table}[H]
   \centering
-  \caption{So sánh kết quả với yêu cầu đề tài}
+  \caption{So sánh kết quả với mục tiêu đặt ra}
   \label{tab:comparison}
   \begin{tabularx}{\textwidth}{Xll}
     \toprule
-    \textbf{Yêu cầu} & \textbf{Mục tiêu} & \textbf{Kết quả} \\
+    \textbf{Tiêu chí} & \textbf{Mục tiêu} & \textbf{Kết quả} \\
     \midrule
-    Model accuracy       & $\geq$85\%    & \textcolor{green!60!black}{\textbf{100\%}} \\
-    Code coverage        & $\geq$80\%    & \textcolor{green!60!black}{\textbf{90\%}} \\
-    Số test cases        & $\geq$10      & \textcolor{green!60!black}{\textbf{74}} \\
-    DAG tasks            & $\geq$3       & \textcolor{green!60!black}{\textbf{5}} \\
-    Drift detection      & Có            & \textcolor{green!60!black}{\textbf{Có (Evidently AI)}} \\
-    Auto-retraining      & Có            & \textcolor{green!60!black}{\textbf{Có (Airflow)}} \\
-    REST API serving     & Có            & \textcolor{green!60!black}{\textbf{Có (FastAPI)}} \\
-    Monitoring dashboard & Có            & \textcolor{green!60!black}{\textbf{Có (Grafana)}} \\
-    CI/CD pipeline       & Có            & \textcolor{green!60!black}{\textbf{Có (GitHub Actions)}} \\
+    Model accuracy (test set)          & $\geq$75\%    & \textcolor{green!60!black}{\textbf{76,1\%}} \\
+    Cross-validation accuracy          & $\geq$75\%    & \textcolor{green!60!black}{\textbf{76,9\% $\pm$ 1,0\%}} \\
+    Chênh lệch accuracy giữa hai loại rượu & $\leq$0,05 & \textcolor{green!60!black}{\textbf{0,030}} \\
+    Latency p95 của \texttt{/predict}  & $<$500 ms     & \textcolor{green!60!black}{\textbf{$\sim$50 ms}} \\
+    Code coverage                      & $\geq$80\%    & \textcolor{green!60!black}{\textbf{96\%}} \\
+    Loại test                          & 4 loại        & \textcolor{green!60!black}{\textbf{Unit, integration, data, model}} \\
+    Drift detection                    & Có            & \textcolor{green!60!black}{\textbf{Có (Evidently AI)}} \\
+    Auto-retraining                    & Có            & \textcolor{green!60!black}{\textbf{Có (Airflow, 6 tasks)}} \\
+    REST API serving                   & Có            & \textcolor{green!60!black}{\textbf{Có (FastAPI)}} \\
+    Monitoring và alerting             & Có            & \textcolor{green!60!black}{\textbf{2 dashboards, 24 rules}} \\
+    CI/CD pipeline                     & Có            & \textcolor{green!60!black}{\textbf{Có (GitHub Actions)}} \\
+    Responsible AI                     & Có            & \textcolor{green!60!black}{\textbf{Fairness, explainability}} \\
     \bottomrule
   \end{tabularx}
 \end{table}
@@ -783,19 +952,29 @@ GitHub Actions workflow được cấu hình tại \texttt{.github/workflows/ci-
 
 \section{Kết luận}
 
-Đề tài đã xây dựng thành công một hệ thống MLOps hoàn chỉnh, đáp ứng đầy đủ yêu cầu của môn học. Cụ thể:
+Đề tài đã xây dựng một hệ thống MLOps hoàn chỉnh, đáp ứng các yêu cầu của môn học. Cụ thể:
 
 \begin{enumerate}
-  \item \textbf{Pipeline ML tự động:} Toàn bộ vòng đời mô hình từ training đến monitoring được tự động hóa, không cần can thiệp thủ công sau khi hệ thống khởi động.
+  \item \textbf{Pipeline ML tự động:} Từ huấn luyện, đánh giá, đăng ký đến triển khai mô hình đều do Airflow DAG thực hiện; không có bước thủ công nào giữa lúc phát hiện drift và lúc mô hình mới được phục vụ.
 
-  \item \textbf{Kiến trúc microservices:} 8 dịch vụ Docker chạy độc lập, dễ dàng scale và thay thế từng thành phần mà không ảnh hưởng đến toàn hệ thống.
+  \item \textbf{Kiến trúc microservices:} 8 dịch vụ Docker chạy độc lập, khởi động bằng một lệnh \texttt{docker compose up}.
 
-  \item \textbf{Vòng lặp khép kín:} Hệ thống tự động phát hiện data drift và kích hoạt tái huấn luyện, đảm bảo mô hình luôn cập nhật với phân phối dữ liệu mới.
+  \item \textbf{Vòng lặp khép kín:} Hệ thống tự phát hiện data drift, tái huấn luyện và chỉ triển khai mô hình mới khi nó không kém mô hình cũ trên cùng tập kiểm tra. Trong thực nghiệm, mô hình mới cải thiện accuracy từ 70,7\% lên 76,1\%.
 
-  \item \textbf{Chất lượng code:} 74 test cases với 90\% coverage, vượt qua yêu cầu tối thiểu 80\%.
+  \item \textbf{Chất lượng code:} 96 test cases với 96\% coverage, vượt qua yêu cầu tối thiểu 80\%.
 
-  \item \textbf{Khả năng quan sát (Observability):} Prometheus + Grafana cung cấp visibility đầy đủ về hiệu năng hệ thống và mô hình.
+  \item \textbf{Khả năng quan sát (Observability):} Prometheus, Grafana và 24 alert rules cung cấp visibility về hiệu năng hệ thống, mô hình và drift.
+
+  \item \textbf{Responsible AI:} Chỉ số fairness theo loại rượu và báo cáo explainability được tạo tự động ở mỗi lần huấn luyện.
 \end{enumerate}
+
+Hệ thống còn các hạn chế sau:
+\begin{itemize}
+  \item Dữ liệu production không có nhãn, nên việc tái huấn luyện dùng dữ liệu đã có nhãn sẵn (file rượu trắng đóng vai trò ``dữ liệu mới đã được gán nhãn''). Trong triển khai thật, điểm của hội đồng nếm thử sẽ đến sau và đi vào cùng pipeline.
+  \item Phân tích drift chỉ chạy khi endpoint \texttt{/analyze} được gọi, chưa chạy theo lịch.
+  \item Quy tắc promote chỉ xét accuracy tổng thể, chưa xét các khoảng cách fairness; tỷ lệ dương tính giả trên rượu trắng còn cao (40,4\%).
+  \item Các kết quả đến từ một lần chia train/test, chưa kiểm định ý nghĩa thống kê.
+\end{itemize}
 
 Qua quá trình thực hiện, nhóm đã tích lũy kinh nghiệm quý báu về:
 \begin{itemize}
@@ -846,7 +1025,7 @@ Hệ thống hiện tại có thể được phát triển theo các hướng sa
 
   \item Grafana Labs. (2024). \textit{Grafana Documentation}. \url{https://grafana.com/docs/}
 
-  \item Scikit-learn Developers. (2024). \textit{sklearn.datasets.load\_wine}. \url{https://scikit-learn.org/stable/modules/generated/sklearn.datasets.load_wine.html}
+  \item Cortez, P., Cerdeira, A., Almeida, F., Matos, T., \& Reis, J. (2009). \textit{Modeling wine preferences by data mining from physicochemical properties}. Decision Support Systems, 47(4), 547--553. Dữ liệu: \url{https://archive.ics.uci.edu/dataset/186/wine+quality}
 
   \item Breck, E., et al. (2017). \textit{The ML Test Score: A Rubric for ML Production Readiness and Technical Debt Reduction}. IEEE Big Data 2017.
 
@@ -868,123 +1047,133 @@ Hệ thống hiện tại có thể được phát triển theo các hướng sa
 
 \begin{itemize}
   \item Docker Desktop (đã bật và đang chạy)
-  \item Python 3.11+
+  \item Python 3.10+
   \item Git
-  \item RAM: tối thiểu 8GB (khuyến nghị 16GB)
-  \item Disk: tối thiểu 5GB trống
 \end{itemize}
 
 \section{Các bước cài đặt từ đầu}
 
 \begin{lstlisting}[language=bash, caption=Cài đặt và chạy hệ thống từ đầu]
 # 1. Clone repository
-git clone https://github.com/phamminhhoang1985/DDM501_Lab1_25MS13285_PhamMinhHoang.git
-cd DDM501_Lab1_25MS13285_PhamMinhHoang/ml-monitoring
+git clone https://github.com/phamminhhoang1985/DDM501_FinalProject_25MS13285_PhamMinhHoang.git
+cd DDM501_FinalProject_25MS13285_PhamMinhHoang
 
-# 2. Tao thu muc artifacts cho MLflow
-mkdir C:\mlflow
+# 2. Tao file cau hinh (doi cong trong .env neu bi trung)
+cp .env.example .env
 
-# 3. Khoi dong services
-docker compose up -d
+# 3. Build va khoi dong services
+docker compose up -d --build
 
-# 4. Cho services khoi dong (khoang 60 giay)
-Start-Sleep -Seconds 60
+# 4. Cai dat Python dependencies cho scripts
+pip install requests colorama
 
-# 5. Cai dat Python dependencies cho scripts
-pip install -r scripts/requirements.txt
-
-# 6. Huan luyen mo hinh ban dau
+# 5. Huan luyen mo hinh ban dau (tu cho Airflow chay xong)
 python scripts/training.py
 
-# 7. (Tuy chon) Chay demo drift & auto-retrain
+# 6. Chay demo drift & auto-retrain
 python scripts/simulate_drift_and_retrain.py
 
-# 8. Chay bo test
-pip install pytest pytest-cov
+# 7. Chay bo test
+pip install -r requirements.txt
 pytest tests/ --cov=src --cov=api -v
 \end{lstlisting}
 
 \chapter{Cấu hình Docker Compose}
 
-\begin{lstlisting}[language=yaml, caption=Trích đoạn docker-compose.yml (services chính)]
+\begin{lstlisting}[style=yaml, caption=Trích đoạn docker-compose.yml (services chính)]
 services:
   postgres:
     image: postgres:15-alpine
     environment:
-      POSTGRES_USER: airflow
-      POSTGRES_PASSWORD: airflow
-      POSTGRES_DB: airflow
-    ports: ["5432:5432"]
+      POSTGRES_USER: mlflow
+      POSTGRES_PASSWORD: mlflow
+      POSTGRES_DB: mlflow
+    ports: ["${POSTGRES_PORT:-5432}:5432"]
 
   mlflow:
     build: ./mlflow
-    ports: ["5000:5000"]
+    ports: ["${MLFLOW_PORT:-5000}:5000"]
     volumes:
-      - C:/mlflow:/mlflow
-    depends_on: [postgres]
+      - mlflow_data:/mlflow
 
   api:
     build: ./api
-    ports: ["8000:8000"]
-    volumes:
-      - C:/mlflow:/mlflow
+    ports: ["${API_PORT:-8000}:8000"]
     environment:
-      MLFLOW_TRACKING_URI: http://mlflow:5000
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
+      - MODEL_NAME=wine_quality_model
+      - MODEL_STAGE=Production
+      - EVIDENTLY_URL=http://evidently:8001
 
-  airflow-webserver:
-    image: ddm501-t03-airflow:2.8.4
-    ports: ["8080:8080"]
+  evidently:
+    build: ./evidently
+    ports: ["${EVIDENTLY_PORT:-8001}:8001"]
+    environment:
+      - EVIDENTLY_DRIFT_THRESHOLD=0.3
+      - AIRFLOW_URL=http://airflow-webserver:8080
+
+  prometheus:
+    image: prom/prometheus:v2.54.1
     volumes:
-      - ./airflow/dags:/opt/airflow/dags
-      - C:/mlflow:/mlflow
+      - ./config/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./config/prometheus:/etc/prometheus/rules:ro
+
+  airflow-scheduler:
+    build: ./airflow
     environment:
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
-      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags
+      - ./src:/opt/airflow/src
+      - ./data:/opt/airflow/data
 \end{lstlisting}
 
 \chapter{Cấu trúc Airflow DAG}
 
-\begin{lstlisting}[language=Python, caption=ml\_pipeline\_dag.py -- DAG chính]
-from airflow import DAG
-from airflow.operators.python import PythonOperator
-from datetime import datetime, timedelta
+\begin{lstlisting}[language=Python, caption=ml\_pipeline\_dag.py -- trích đoạn DAG chính]
+def model_evaluation_and_registration(**kwargs):
+    test_df = load_data_artifact(TEST_PATH)
+    X_test, y_test = test_df[FEATURE_NAMES], test_df[TARGET]
 
-default_args = {
-    'owner': 'mlops-team',
-    'retries': 1,
-    'retry_delay': timedelta(minutes=5),
-}
+    candidate = mlflow.sklearn.load_model(f"runs:/{run_id}/model")
+    candidate_metrics = evaluate_model(candidate, X_test, y_test)
+
+    # Candidate and production are compared on the same test set
+    production = load_production_model()
+    promote = True
+    if production is not None:
+        production_metrics = evaluate_model(production, X_test, y_test)
+        promote = should_promote(candidate_metrics, production_metrics)
+
+    if promote:
+        register_and_promote(run_id)
+    return promote
+
 
 with DAG(
-    'ml_pipeline',
+    dag_id='ml_training_pipeline',
     default_args=default_args,
-    schedule_interval=None,  # Trigger thu cong
+    schedule_interval=None,  # Chi chay khi duoc trigger
     start_date=datetime(2024, 1, 1),
     catchup=False,
+    max_active_runs=1,
 ) as dag:
 
-    ingest = PythonOperator(
-        task_id='data_ingestion',
-        python_callable=ingest_data,
-    )
-    clean = PythonOperator(
-        task_id='data_cleaning',
-        python_callable=clean_data,
-    )
-    features = PythonOperator(
-        task_id='feature_engineering',
-        python_callable=engineer_features,
-    )
-    train = PythonOperator(
-        task_id='model_training',
-        python_callable=train_model,
-    )
-    evaluate = PythonOperator(
-        task_id='model_evaluation_and_registration',
-        python_callable=evaluate_and_register,
-    )
+    t1 = PythonOperator(task_id='data_ingestion',
+                        python_callable=data_ingestion)
+    t2 = PythonOperator(task_id='data_cleaning',
+                        python_callable=data_cleaning)
+    t3 = PythonOperator(task_id='feature_engineering',
+                        python_callable=feature_engineering)
+    t4 = PythonOperator(task_id='model_training',
+                        python_callable=model_training)
+    t5 = PythonOperator(task_id='model_evaluation_and_registration',
+                        python_callable=model_evaluation_and_registration)
+    t6 = PythonOperator(task_id='deploy_model',
+                        python_callable=deploy_model)
 
-    ingest >> clean >> features >> train >> evaluate
+    t1 >> t2 >> t3 >> t4 >> t5 >> t6
 \end{lstlisting}
 
 \end{document}
